@@ -1,0 +1,298 @@
+<Window x:Class="DevOverlay.UI.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DevOverlay.UI"
+        Title="DevOverlay Settings" Icon="pack://application:,,,/DevOverlay;component/assets/DevOverlay.ico" Width="620" Height="720" MinWidth="500" MinHeight="560"
+        ResizeMode="CanResize" WindowStartupLocation="CenterScreen" ShowInTaskbar="True">
+  <Grid>
+    <ScrollViewer x:Name="SettingsContentScrollViewer" VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="16">
+      <GroupBox x:Name="OverlaySettingsGroup" Header="Position" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <TextBlock Text="{Binding PositionModeText}" Margin="0,0,0,6" />
+          <WrapPanel>
+            <Button Content="Move Overlay" Width="110" Margin="0,0,8,0" Click="OnMoveOverlayClick" />
+            <Button Content="Reset Position" Width="110" Click="OnResetPositionClick" />
+          </WrapPanel>
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="HUD hotkey" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <TextBox x:Name="HotkeyCaptureTextBox" Text="{Binding HotkeyText, Mode=OneWay}" IsReadOnly="True"
+                   Cursor="Hand" ToolTip="Click, then press a modifier and key combination."
+                   GotKeyboardFocus="OnHotkeyCaptureGotKeyboardFocus"
+                   LostKeyboardFocus="OnHotkeyCaptureLostKeyboardFocus"
+                   PreviewKeyDown="OnHotkeyCapturePreviewKeyDown" />
+          <TextBlock Text="Click the field, then press a modifier + key. Esc cancels." Foreground="Gray"
+                     TextWrapping="Wrap" Margin="0,6,0,0" />
+          <TextBlock Text="{Binding HotkeyStatusText}" TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="Monitoring" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <TextBlock Text="Refresh Interval" FontWeight="SemiBold" />
+          <Grid Margin="0,6,0,2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="10" /><ColumnDefinition Width="70" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <Slider Grid.Column="0" Minimum="{Binding RefreshIntervalMinimumMs}" Maximum="{Binding RefreshIntervalMaximumMs}"
+                    TickFrequency="50" SmallChange="50" LargeChange="250" IsSnapToTickEnabled="False"
+                    Value="{Binding RefreshIntervalSliderValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
+            <TextBox x:Name="RefreshIntervalTextBox" Grid.Column="2" Text="{Binding RefreshIntervalText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     HorizontalContentAlignment="Right" LostFocus="OnRefreshIntervalLostFocus" KeyDown="OnRefreshIntervalKeyDown"
+                     PreviewTextInput="OnRefreshIntervalPreviewTextInput" />
+            <TextBlock Grid.Column="4" Text="ms" VerticalAlignment="Center" />
+          </Grid>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding RefreshIntervalMinimumMs, StringFormat={}{0} ms}" Foreground="Gray" />
+            <TextBlock Grid.Column="2" Text="{Binding RefreshIntervalMaximumMs, StringFormat={}{0} ms}" Foreground="Gray" />
+          </Grid>
+          <TextBlock Text="Controls how often live HUD values are refreshed." Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0" />
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox x:Name="AiUsageSettingsGroup" Header="AI Usage" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox x:Name="ShowAiCheckBox" Content="Show AI" IsChecked="{Binding AiUsageEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <CheckBox x:Name="CodexAccountLimitsCheckBox" Content="Codex Account Limits" IsChecked="{Binding CodexAccountLimitsEnabled, Mode=TwoWay}"
+                    Margin="20,4,0,6" />
+          <TextBlock x:Name="CodexStatusTextBlock" Text="{Binding CodexStatusText}" TextWrapping="Wrap" />
+          <Button x:Name="RecheckCodexButton" Content="Recheck Codex" Width="120" HorizontalAlignment="Left"
+                  Margin="0,6,0,6" Click="OnRecheckCodexClick" />
+          <TextBlock x:Name="CodexSetupHelpTextBlock" Text="{Binding CodexSetupHelpText}" Foreground="Gray"
+                     TextWrapping="Wrap" />
+          <Expander x:Name="CodexUsageGuideExpander" Header="Codex Setup &amp; Usage" Margin="0,8,0,0">
+            <StackPanel Margin="0,6,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="1. Install — Common path: `npm install -g @openai/codex@latest`." TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button x:Name="CopyCodexInstallCommandButton" Grid.Column="1" Content="Copy" Tag="npm install -g @openai/codex@latest"
+                        Margin="8,0,0,0" Padding="8,2" ToolTip="Copy Codex install command" Click="OnCopyCommandClick" />
+              </Grid>
+              <TextBlock Text="2. Sign in — Run `codex`. Check: `codex --version`." TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="3. Enable — Turn on Show AI and Codex Account Limits." TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="4. Recheck — Click Recheck Codex after install or update. Diagnostics: `codex doctor`, `where.exe codex`." TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="HUD: 5H 25% = 25% remaining. 0% = exhausted. N/A = unavailable." TextWrapping="Wrap" Margin="0,6,0,0" />
+            </StackPanel>
+          </Expander>
+          <Separator Margin="0,8,0,6" />
+          <CheckBox x:Name="ClaudeUsageCheckBox" Content="Claude Usage" IsChecked="{Binding ClaudeUsageEnabled, Mode=TwoWay}"
+                    Margin="0,0,0,4" />
+          <TextBlock x:Name="ClaudeStatusTextBlock" Text="{Binding ClaudeStatusText}" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Margin="0,6,0,6">
+            <Button x:Name="RecheckClaudeButton" Content="Recheck Claude" Width="120" Click="OnRecheckClaudeClick" />
+          </StackPanel>
+          <TextBlock x:Name="ClaudeSetupHelpTextBlock" Text="{Binding ClaudeSetupHelpText}" Foreground="Gray" TextWrapping="Wrap" />
+          <Expander x:Name="ClaudeUsageGuideExpander" Header="Claude Setup &amp; Usage" Margin="0,8,0,0">
+            <StackPanel Margin="0,6,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="1. Install — Common path: `npm install -g @anthropic-ai/claude-code`." TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button x:Name="CopyClaudeInstallCommandButton" Grid.Column="1" Content="Copy" Tag="npm install -g @anthropic-ai/claude-code"
+                        Margin="8,0,0,0" Padding="8,2" ToolTip="Copy Claude Code install command" Click="OnCopyCommandClick" />
+              </Grid>
+              <TextBlock Text="2. Sign in — Run `claude`. Check: `claude --version`." TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="3. Enable — Turn on Show AI and Claude Usage." TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="4. Refresh — Click Recheck Claude. Account 5H/7D uses Claude Code's local /usage command. Diagnostics: `claude doctor`, `where.exe claude`." TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="HUD: Percentages are remaining quota. 0% = exhausted. N/A = unavailable." TextWrapping="Wrap" Margin="0,6,0,0" />
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="Group order" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <TextBlock Text="Change the order in the single overlay. Hidden groups keep their place."
+                     TextWrapping="Wrap" Margin="0,0,0,8" />
+          <ItemsControl ItemsSource="{Binding GroupOrderChoices}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Margin="0,0,0,6">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                  <Button Grid.Column="1" Content="Up" IsEnabled="{Binding CanMoveUp}"
+                          Width="65" Margin="0,0,8,0" Click="OnMoveGroupUpClick" />
+                  <Button Grid.Column="2" Content="Down" IsEnabled="{Binding CanMoveDown}"
+                          Width="65" Click="OnMoveGroupDownClick" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox x:Name="CpuSettingsGroup" Header="CPU" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox x:Name="ShowCpuCheckBox" Content="Show CPU" IsChecked="{Binding CpuEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <WrapPanel Margin="20,4,0,8">
+            <CheckBox Content="Usage" IsChecked="{Binding CpuUsageEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Temperature" IsChecked="{Binding CpuTemperatureEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Power" IsChecked="{Binding CpuPowerEnabled, Mode=TwoWay}" />
+          </WrapPanel>
+          <TextBlock Text="{Binding PawnIoStatusText}" TextWrapping="Wrap" />
+          <TextBlock Text="PawnIO is required for CPU Package sensor access." Foreground="Gray" TextWrapping="Wrap" Margin="0,2,0,0" />
+          <TextBlock Text="{Binding SensorServiceStatusText}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding SensorServiceConnectionText}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding CpuSensorStatusText}" TextWrapping="Wrap" Margin="0,0,0,6" />
+          <WrapPanel x:Name="CpuServiceActionPanel" Margin="0,2,0,0">
+            <Button Content="{Binding PawnIoActionText}" IsEnabled="{Binding CanInstallPawnIo}"
+                    Width="125" Margin="0,0,8,8" Click="OnInstallPawnIoClick" />
+            <Button x:Name="InstallSensorServiceButton" Content="Install Sensor Service" IsEnabled="{Binding CanInstallSensorService}"
+                    Width="150" Margin="0,0,8,8" Click="OnInstallSensorServiceClick" />
+            <Button Content="Repair Sensor Service" IsEnabled="{Binding CanRepairSensorService}"
+                    Width="150" Margin="0,0,8,8" Click="OnRepairSensorServiceClick" />
+            <Button Content="Uninstall Sensor Service" IsEnabled="{Binding CanUninstallSensorService}"
+                    Width="160" Margin="0,0,8,8" Click="OnUninstallSensorServiceClick" />
+          </WrapPanel>
+          <TextBlock Text="{Binding SensorServiceActionMessage}" TextWrapping="Wrap" Margin="0,6,0,0" />
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="Appearance" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <Grid Margin="0,0,0,7">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" /><ColumnDefinition Width="100" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Background" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Width="34" Height="22" Tag="Background" Click="OnPickColorClick" ToolTip="Choose background from a palette" AutomationProperties.Name="Choose background">
+              <Border Width="22" Height="12" BorderBrush="Gray" BorderThickness="1" Background="{Binding BackgroundColor}" />
+            </Button>
+            <TextBox Grid.Column="3" Text="{Binding BackgroundColor, Mode=TwoWay}" ToolTip="#RRGGBB (press Enter to apply)" KeyDown="OnHexKeyDown" />
+            <TextBlock Grid.Column="5" Text="#RRGGBB" VerticalAlignment="Center" Foreground="Gray" />
+          </Grid>
+          <Grid Margin="0,0,0,7">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="170" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Bg opacity" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="10" IsSnapToTickEnabled="False"
+                    Value="{Binding BackgroundOpacityPercent, Mode=TwoWay}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{Binding BackgroundOpacityPercent, StringFormat={}{0:0}%}" VerticalAlignment="Center" />
+          </Grid>
+          <Grid Margin="0,0,0,7">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" /><ColumnDefinition Width="100" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Text color" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Width="34" Height="22" Tag="Text" Click="OnPickColorClick" ToolTip="Choose text color from a palette" AutomationProperties.Name="Choose text color">
+              <Border Width="22" Height="12" BorderBrush="Gray" BorderThickness="1" Background="{Binding ValueTextColor}" />
+            </Button>
+            <TextBox Grid.Column="3" Text="{Binding ValueTextColor, Mode=TwoWay}" ToolTip="#RRGGBB (press Enter to apply)" KeyDown="OnHexKeyDown" />
+            <TextBlock Grid.Column="5" Text="#RRGGBB" VerticalAlignment="Center" Foreground="Gray" />
+          </Grid>
+          <Grid Margin="0,0,0,7">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" /><ColumnDefinition Width="100" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Label color" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Width="34" Height="22" Tag="Label" Click="OnPickColorClick" ToolTip="Choose label color from a palette" AutomationProperties.Name="Choose label color">
+              <Border Width="22" Height="12" BorderBrush="Gray" BorderThickness="1" Background="{Binding LabelTextColor}" />
+            </Button>
+            <TextBox Grid.Column="3" Text="{Binding LabelTextColor, Mode=TwoWay}" ToolTip="#RRGGBB (press Enter to apply)" KeyDown="OnHexKeyDown" />
+            <TextBlock Grid.Column="5" Text="#RRGGBB" VerticalAlignment="Center" Foreground="Gray" />
+          </Grid>
+          <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="170" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Spacing" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="40" Maximum="160" TickFrequency="5" IsSnapToTickEnabled="True" SmallChange="5" LargeChange="10"
+                    Value="{Binding SpacingPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{Binding SpacingPercent, StringFormat={}{0:0}%}" VerticalAlignment="Center" />
+          </Grid>
+          <Button Content="Reset Appearance" Width="120" HorizontalAlignment="Left" Click="OnResetAppearanceClick" />
+          <Popup x:Name="ColorPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="False">
+            <local:ColorPalette x:Name="Palette" />
+          </Popup>
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="GPU" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox Content="Show GPU" IsChecked="{Binding GpuEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <WrapPanel Margin="20,4,0,8">
+            <CheckBox Content="Usage" IsChecked="{Binding GpuUsageEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Temperature" IsChecked="{Binding GpuTemperatureEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Power" IsChecked="{Binding GpuPowerEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="VRAM usage" IsChecked="{Binding GpuVramEnabled, Mode=TwoWay}" />
+          </WrapPanel>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="12" /><ColumnDefinition Width="220" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Device" VerticalAlignment="Center" />
+            <ComboBox x:Name="GpuDeviceComboBox" Grid.Column="2" ItemsSource="{Binding GpuDevices}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" IsSynchronizedWithCurrentItem="False"
+                      SelectedValue="{Binding GpuDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          </Grid>
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="FPS" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox Content="Show FPS" IsChecked="{Binding FpsEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <WrapPanel Margin="20,4,0,8">
+            <CheckBox Content="FPS" IsChecked="{Binding FramesPerSecondEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="1% Low" IsChecked="{Binding OnePercentLowEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Frame Time" IsChecked="{Binding FrameTimeEnabled, Mode=TwoWay}" />
+          </WrapPanel>
+          <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="12" /><ColumnDefinition Width="220" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Frame monitoring target" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding FpsTargets}" DisplayMemberPath="DisplayName"
+                      SelectedValuePath="Id" IsSynchronizedWithCurrentItem="False"
+                      SelectedValue="{Binding FpsTargetId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          </Grid>
+          <Button Content="Browse executable..." Width="150" HorizontalAlignment="Left"
+                  Margin="0,0,0,6" Click="OnBrowseFpsTargetClick" />
+          <TextBlock Text="{Binding PresentMonStatusText}" TextWrapping="Wrap" Margin="0,0,0,6" />
+          <TextBlock Text="{Binding FpsTelemetryStatusText}" TextWrapping="Wrap" Margin="0,0,0,6" />
+          <Button Content="Get PresentMon installer" Width="175" HorizontalAlignment="Left"
+                  Click="OnInstallPresentMonClick" />
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="Latency" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox Content="Show Latency" IsChecked="{Binding LatencyEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <CheckBox Content="Render Latency" IsChecked="{Binding RenderLatencyEnabled, Mode=TwoWay}" Margin="20,4,0,0" />
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="Network" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox Content="Show NET" IsChecked="{Binding NetworkEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <WrapPanel Margin="20,4,0,8">
+            <CheckBox Content="Download" IsChecked="{Binding NetworkDownloadEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Upload" IsChecked="{Binding NetworkUploadEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Today Total" IsChecked="{Binding NetworkTodayTotalEnabled, Mode=TwoWay}" />
+          </WrapPanel>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="12" /><ColumnDefinition Width="220" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Interface" VerticalAlignment="Center" />
+            <ComboBox x:Name="NetworkDeviceComboBox" Grid.Column="2" ItemsSource="{Binding NetworkDevices}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" IsSynchronizedWithCurrentItem="False"
+                      SelectedValue="{Binding NetworkDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          </Grid>
+        </StackPanel>
+      </GroupBox>
+
+      <GroupBox Header="Storage" Margin="0,0,0,12">
+        <StackPanel Margin="10">
+          <CheckBox Content="Show DISK" IsChecked="{Binding StorageEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <WrapPanel Margin="20,4,0,8">
+            <CheckBox Content="Read" IsChecked="{Binding StorageReadEnabled, Mode=TwoWay}" Margin="0,0,14,0" />
+            <CheckBox Content="Write" IsChecked="{Binding StorageWriteEnabled, Mode=TwoWay}" />
+          </WrapPanel>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="12" /><ColumnDefinition Width="220" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Device" VerticalAlignment="Center" />
+            <ComboBox x:Name="StorageDeviceComboBox" Grid.Column="2" ItemsSource="{Binding StorageDevices}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" IsSynchronizedWithCurrentItem="False"
+                      SelectedValue="{Binding StorageDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          </Grid>
+        </StackPanel>
+      </GroupBox>
+
+      <Button Content="Close" Width="80" HorizontalAlignment="Right" IsDefault="True" Click="OnCloseClick" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>

@@ -1,12 +1,47 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\DevOverlay.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="DevOverlay.Tests\**\*.cs" />
+    <Compile Remove="DevOverlay.SensorHost\**\*.cs" />
+    <Compile Remove="DevOverlay.SensorService\**\*.cs" />
+    <Compile Remove="SensorHostCore\**\*.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="assets\DevOverlay.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="DevOverlay.SensorHost\DevOverlay.SensorHost.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="DevOverlay.SensorService\DevOverlay.SensorService.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="System.Management" Version="10.0.2" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+  </ItemGroup>
+  <Target Name="CopySensorHostForDevelopment" AfterTargets="Build">
+    <ItemGroup>
+      <SensorHostOutput Include="DevOverlay.SensorHost\bin\$(Configuration)\net8.0-windows10.0.19041.0\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SensorHostOutput)"
+          DestinationFiles="@(SensorHostOutput->'$(OutDir)SensorHost\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopySensorServiceForDevelopment" AfterTargets="Build">
+    <ItemGroup>
+      <SensorServiceOutput Include="DevOverlay.SensorService\bin\$(Configuration)\net8.0-windows10.0.19041.0\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SensorServiceOutput)"
+          DestinationFiles="@(SensorServiceOutput->'$(OutDir)SensorService\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

@@ -7,6 +7,7 @@
 
 # Local documentation and work notes
 /docs/
+AGENTS.md
 
 # Environment files and local configuration that may contain secrets
 .env
@@ -29,3 +30,10 @@ credentials.json
 *.tmp
 *.bak
 *.dmp
+
+# Release staging, test results and frame-capture diagnostics
+/release/
+TestResults/
+*.trx
+frame-capture-*
+__pycache__/

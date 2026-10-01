@@ -1,67 +1,67 @@
 # DevOverlay
 
-Windows에서 시스템 및 개발 관련 지표를 작고 구성 가능한 오버레이 형태로 표시하기 위한 WPF 애플리케이션입니다.
+Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 CPU, GPU, 저장장치, 네트워크, FPS, 프레임 타임, 지연 시간, Codex/Claude 사용량을 그룹별로 표시합니다.
 
-> 현재는 초기 기반 구현 단계입니다. CPU 사용률만 실제 Windows API로 수집하며, 나머지 지표는 화면 구조 검증을 위한 데모 값입니다.
+현재 버전: **v0.1.0** (Windows 10/11 x64)
 
-## 현재 구현 상태
+## 구현된 기능
 
-- 투명한 항상 위 표시(WPF) 오버레이 창
-- CPU, GPU, 프레임, 지연 시간별 가로 그룹 UI
-- 비동기 `IMetricProvider` 기반 수집 구조와 공급자별 갱신 주기
-- Windows `GetSystemTimes` API 기반 전체 CPU 사용률 수집(1초 간격)
-- 지표 ID, 카테고리, 단위, 사용 가능 여부, 갱신 시각을 갖는 정규화된 `MetricSnapshot` 모델
-- 화면 표시와 지표 수집을 분리한 구조
-- 위치, 표시 지표, 팝업 동작을 위한 설정 모델
+- 투명한 항상 위 오버레이 창과 트레이 아이콘(Open Settings / Show/Hide Overlay / Exit)
+- CPU 사용률, CPU 패키지 온도·전력(Sensor Service + PawnIO 필요)
+- NVIDIA GPU 사용률·온도·전력·VRAM(NVIDIA 드라이버의 NVML 사용)
+- 디스크 읽기/쓰기, 네트워크 업로드/다운로드 및 오늘 사용량(장치 선택 가능)
+- FPS, 1% Low(표시 간격 기준, 15초 창의 가장 느린 1% 평균), 프레임 타임, Render Present Latency(Intel PresentMon 서비스 필요)
+- Codex 계정 한도, Claude 사용량(각 CLI가 설치되어 있어야 함)
+- Settings: 그룹 표시/순서, 위치(이동/초기화), 갱신 주기(250–2000 ms), 색상·투명도 등 외형, HUD 전역 단축키(기본 `Ctrl+Shift+O`)
 
-첫 CPU 샘플은 이전 값과의 차이를 계산할 수 없으므로 `—`로 표시됩니다. 이후 갱신부터 실제 CPU 사용률이 표시됩니다.
+## 설치와 첫 실행
 
-## 예정 기능
+1. `DevOverlay-v0.1.0-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained).
+2. `DevOverlay.exe`를 실행합니다. 서명되지 않은 바이너리이므로 Windows SmartScreen 경고가 나올 수 있습니다.
+3. 트레이 아이콘의 **Open Settings**로 설정을 엽니다. 설정은 `%LOCALAPPDATA%\DevOverlay\settings.json`에 저장됩니다.
 
-- 실제 GPU 사용률·온도·전력·VRAM 수집
-- 저장장치·네트워크 지표
-- FPS, 1% Low FPS, 프레임 타임, 지연 시간 수집
-- Codex 및 Claude 사용량 연동
-- 설정 저장, 다중 모니터 위치 선택, 드래그 이동
-- 클릭·호버 기반 상세 팝업
+### 선택 구성 요소(자동 설치되지 않음)
 
-예정 항목은 아직 구현되지 않았습니다.
+| 기능 | 필요한 것 | 방법 |
+| --- | --- | --- |
+| FPS / 1% Low / Frame Time / Latency | Intel PresentMon 서비스 **v2.6.0** | Settings의 *Get PresentMon installer*가 공식 릴리스 페이지를 엽니다. 직접 설치해야 합니다. 설치되어 있지 않으면 해당 값은 N/A로 표시됩니다. |
+| CPU 패키지 온도·전력 | DevOverlay Sensor Service + PawnIO | Settings > CPU의 *Install Sensor Service*(UAC 승인 필요). PawnIO는 같은 화면에서 명시적으로 요청할 때만 다운로드하며(SHA-256 검증 후) UAC 승인으로 설치합니다. 시작 시 자동 설치하지 않습니다. |
+| Codex / Claude 사용량 | `codex` / `claude` CLI 설치와 로그인 | Settings의 AI Usage 안내를 따르세요. Claude 상태줄 연동은 `%USERPROFILE%\.claude\settings.json`을 수정하며, 기존 사용자 정의 statusLine은 덮어쓰지 않습니다. |
 
-## 요구 사항
+### Sensor Service 설치 위치
 
-- Windows 10/11
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) 이상
+Sensor Service는 **LocalSystem 권한의 Windows 서비스**입니다. 압축을 푼 폴더의 `SensorService\`는 설치 원본으로만 쓰이며, 서비스가 직접 실행하지 않습니다.
 
-현재 프로젝트는 `net8.0-windows`와 WPF를 사용합니다. 런타임만 설치되어 있으면 빌드는 할 수 없으므로 **SDK**를 설치해야 합니다.
+- *Install / Repair Sensor Service*는 관리자 권한으로 원본을 `%ProgramFiles%\DevOverlaySensorService\current\`에 복사합니다.
+- 이 폴더는 SYSTEM과 Administrators만 수정할 수 있고 Users는 읽기·실행만 가능하도록 ACL이 설정됩니다. 설치 프로그램은 이 ACL과 소유자를 검증한 뒤에만 서비스를 해당 위치로 등록합니다.
+- 앱 폴더를 옮기거나 삭제해도 서비스 경로는 바뀌지 않습니다. 새 버전으로 갱신하려면 새 폴더에서 *Repair Sensor Service*를 실행하세요.
+- 예전 개발 빌드처럼 보호되지 않은 경로에 등록된 서비스는 Settings에 *Broken — unprotected location*으로 표시됩니다. *Repair*로 보호 위치로 옮길 수 있습니다. Repair가 실패하면 서비스는 중지되고 비활성화됩니다.
+- *Uninstall Sensor Service*는 서비스와 `%ProgramFiles%\DevOverlaySensorService\`만 제거합니다(PawnIO는 제거하지 않음).
+- 설치·복구 실패 내용은 Windows Application 이벤트 로그(원본 `DevOverlaySensorService`)에 기록됩니다.
 
-## 실행 방법
+Claude 상태줄 연동은 `DevOverlay.exe`의 경로를 기록하므로, 앱 폴더를 옮기면 다시 설정해야 합니다.
 
-PowerShell에서 다음을 실행합니다.
+## 알려진 제한
+
+- Frame Generation처럼 하나의 Present가 여러 번 표시되는 경우, 같은 Present QPC가 반복된 행은 1% Low 표본에서 제외되어 표시 이벤트가 적게 계산될 수 있습니다.
+- Windows x64만 지원합니다. 이 릴리스는 코드 서명되어 있지 않습니다.
+
+## 소스에서 빌드
+
+.NET 8 SDK가 필요합니다.
 
 ```powershell
 git clone https://github.com/jimmy8790/DevOverlay.git
 Set-Location DevOverlay
-dotnet run
+dotnet build DevOverlay.csproj -c Release
+dotnet test DevOverlay.Tests -c Release
+.\tools\package-release.ps1   # release\DevOverlay-v<version>-win-x64.zip 생성
 ```
 
-SDK 설치 여부는 다음 명령으로 확인할 수 있습니다.
+## 라이선스
 
-```powershell
-dotnet --list-sdks
-```
+DevOverlay 자체 소스는 [MIT License](LICENSE)입니다(Copyright (c) 2026 DevOverlay).
 
-## 프로젝트 구조
+배포 ZIP에 포함된 서드파티 구성 요소는 각자의 라이선스를 따르며 DevOverlay의 MIT 라이선스로 재라이선스되지 않습니다. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)와 ZIP의 `licenses\` 폴더를 참고하세요.
 
-```text
-Configuration/       오버레이 위치와 표시 옵션 모델
-Metrics/             지표 모델, 공급자 인터페이스, 갱신 서비스
-Metrics/Windows/     Windows 전용 실제 지표 공급자
-Metrics/Demo/        UI 검증용 데모 지표 공급자
-Platform/Windows/    Windows 위치 지정 기능
-Presentation/        오버레이용 ViewModel
-UI/                  WPF 오버레이 화면
-```
-
-## 개발 상태
-
-이 저장소의 소스는 초기 구현 단계입니다. 개발 환경에는 .NET 8 런타임은 설치되어 있었지만 SDK가 없어, 현재 버전의 `dotnet build` 및 앱 실행은 아직 검증되지 않았습니다. SDK 설치 후 `dotnet build`와 `dotnet run`으로 확인해야 합니다.
+앱 아이콘은 프로젝트 로고(`assets/DevOverlay-logo.png`)에서 `tools/generate-icons.ps1`로 만든 `assets/DevOverlay.ico`입니다.

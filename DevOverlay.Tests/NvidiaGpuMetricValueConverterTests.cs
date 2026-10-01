@@ -1,5 +1,6 @@
 using DevOverlay.Metrics;
 using DevOverlay.Metrics.Windows;
+using DevOverlay.Configuration;
 using Xunit;
 
 namespace DevOverlay.Tests;
@@ -53,6 +54,11 @@ public sealed class NvidiaGpuMetricValueConverterTests
             metric => AssertAvailable(metric, MetricId.GpuTemperature, 1, 150),
             metric => AssertAvailable(metric, MetricId.GpuPower, 0, 1_000),
             metric => AssertAvailable(metric, MetricId.GpuVramUsed, 0, 100));
+
+        var selectedDevice = provider.GetAvailableDevices().First();
+        await using var explicitlySelectedProvider = new NvidiaGpuMetricProvider(DeviceSelection.Specific(selectedDevice.Id));
+        var explicitlySelectedMetrics = await explicitlySelectedProvider.CollectAsync(CancellationToken.None);
+        Assert.All(explicitlySelectedMetrics, metric => Assert.True(metric.IsAvailable));
     }
 
     private static void AssertAvailable(MetricSnapshot metric, MetricId expectedId, double minimum, double maximum)

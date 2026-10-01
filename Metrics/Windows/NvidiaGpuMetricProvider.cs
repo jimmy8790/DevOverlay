@@ -1,4 +1,7 @@
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Diagnostics;
+using DevOverlay.Configuration;
 
 namespace DevOverlay.Metrics.Windows;
 
@@ -6,17 +9,27 @@ namespace DevOverlay.Metrics.Windows;
 /// Collects real-time metrics from one NVIDIA GPU through NVML. NVML is initialized once,
 /// and the selected device handle is reused for every subsequent sample.
 /// </summary>
-public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
+public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable, ISelectableDeviceProvider
 {
     private const int NvmlSuccess = 0;
     private const uint NvmlTemperatureGpu = 0;
+    private const uint NvmlDeviceNameBufferLength = 96;
+    private const uint NvmlDeviceUuidBufferLength = 80;
 
     private readonly object _syncRoot = new();
+    private readonly DeviceSelection _selection;
+    private IReadOnlyCollection<NvidiaDevice> _availableDevices = [];
     private bool _initializationAttempted;
     private bool _isInitialized;
     private nint _deviceHandle;
 
+    public NvidiaGpuMetricProvider(DeviceSelection? selection = null)
+    {
+        _selection = selection ?? DeviceSelection.Auto;
+    }
+
     public string Name => "NVIDIA GPU metrics";
+    internal DeviceSelection Selection => _selection;
     public TimeSpan RefreshInterval => TimeSpan.FromSeconds(1);
 
     public Task<IReadOnlyCollection<MetricSnapshot>> CollectAsync(CancellationToken cancellationToken)
@@ -61,10 +74,11 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
                     return false;
                 }
 
-                _deviceHandle = SelectDevice(deviceCount);
+                _availableDevices = EnumerateDevices(deviceCount);
+                _deviceHandle = SelectDevice(_availableDevices);
                 if (_deviceHandle == nint.Zero)
                 {
-                    ShutdownAfterFailedInitialization();
+                    ShutdownAfterFailedInitialization(retainDevices: true);
                     return false;
                 }
 
@@ -84,11 +98,22 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
         }
     }
 
-    private static nint SelectDevice(uint deviceCount)
+    public IReadOnlyCollection<DeviceDescriptor> GetAvailableDevices()
     {
-        nint fallbackDevice = nint.Zero;
-        nint selectedDevice = nint.Zero;
-        ulong selectedTotalMemory = 0;
+        _ = EnsureInitialized();
+
+        lock (_syncRoot)
+        {
+            return _availableDevices
+                .Where(device => device.Id is not null)
+                .Select(device => new DeviceDescriptor(device.Id!, device.DisplayName))
+                .ToArray();
+        }
+    }
+
+    private static IReadOnlyCollection<NvidiaDevice> EnumerateDevices(uint deviceCount)
+    {
+        var devices = new List<NvidiaDevice>();
 
         for (uint index = 0; index < deviceCount; index++)
         {
@@ -97,17 +122,48 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
                 continue;
             }
 
-            fallbackDevice = fallbackDevice == nint.Zero ? device : fallbackDevice;
-            if (NvmlDeviceGetMemoryInfo(device, out var memory) == NvmlSuccess && memory.Total > selectedTotalMemory)
-            {
-                selectedDevice = device;
-                selectedTotalMemory = memory.Total;
-            }
+            var deviceId = ReadDeviceUuid(device);
+            var displayName = ReadDeviceName(device) ?? "NVIDIA GPU";
+            var totalMemory = NvmlDeviceGetMemoryInfo(device, out var memory) == NvmlSuccess ? memory.Total : 0;
+            devices.Add(new NvidiaDevice(device, deviceId, displayName, totalMemory));
         }
 
-        // On systems with several NVIDIA adapters, prefer the largest dedicated-memory device.
-        // Equal totals keep the lower NVML index because the loop only replaces on a larger value.
-        return selectedDevice != nint.Zero ? selectedDevice : fallbackDevice;
+        return devices;
+    }
+
+    private nint SelectDevice(IReadOnlyCollection<NvidiaDevice> devices)
+    {
+        if (_selection is SpecificDeviceSelection specific)
+        {
+            var selectedDevice = devices.FirstOrDefault(device => device.Id == specific.DeviceId);
+            if (selectedDevice.Handle != nint.Zero)
+            {
+                return selectedDevice.Handle;
+            }
+
+            Trace.WriteLine($"Configured NVIDIA GPU '{specific.DeviceId}' was not found; metrics are unavailable.");
+            return nint.Zero;
+        }
+
+        // Auto chooses the largest dedicated-memory GPU. Equal totals retain enumeration order,
+        // which is NVML's lower device index.
+        return devices.OrderByDescending(device => device.TotalMemory).FirstOrDefault().Handle;
+    }
+
+    private static string? ReadDeviceUuid(nint device)
+    {
+        var buffer = new StringBuilder((int)NvmlDeviceUuidBufferLength);
+        return NvmlDeviceGetUuid(device, buffer, NvmlDeviceUuidBufferLength) == NvmlSuccess
+            ? buffer.ToString()
+            : null;
+    }
+
+    private static string? ReadDeviceName(nint device)
+    {
+        var buffer = new StringBuilder((int)NvmlDeviceNameBufferLength);
+        return NvmlDeviceGetName(device, buffer, NvmlDeviceNameBufferLength) == NvmlSuccess
+            ? buffer.ToString()
+            : null;
     }
 
     private MetricSnapshot CreateUtilizationSnapshot(DateTimeOffset timestamp) =>
@@ -144,7 +200,7 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
         MetricSnapshot.Unavailable(MetricId.GpuVramUsed, MetricCategory.Gpu, "VRAM", "GB")
     ];
 
-    private void ShutdownAfterFailedInitialization()
+    private void ShutdownAfterFailedInitialization(bool retainDevices = false)
     {
         try
         {
@@ -160,6 +216,7 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
         }
 
         _deviceHandle = nint.Zero;
+        if (!retainDevices) _availableDevices = [];
     }
 
     public ValueTask DisposeAsync()
@@ -171,6 +228,7 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
                 NvmlShutdown();
                 _isInitialized = false;
                 _deviceHandle = nint.Zero;
+                _availableDevices = [];
             }
         }
 
@@ -188,6 +246,12 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
 
     [DllImport("nvml.dll", EntryPoint = "nvmlDeviceGetHandleByIndex_v2")]
     private static extern int NvmlDeviceGetHandleByIndexV2(uint index, out nint device);
+
+    [DllImport("nvml.dll", EntryPoint = "nvmlDeviceGetUUID", CharSet = CharSet.Ansi)]
+    private static extern int NvmlDeviceGetUuid(nint device, StringBuilder uuid, uint length);
+
+    [DllImport("nvml.dll", EntryPoint = "nvmlDeviceGetName", CharSet = CharSet.Ansi)]
+    private static extern int NvmlDeviceGetName(nint device, StringBuilder name, uint length);
 
     [DllImport("nvml.dll", EntryPoint = "nvmlDeviceGetUtilizationRates")]
     private static extern int NvmlDeviceGetUtilizationRates(nint device, out NvmlUtilization utilization);
@@ -215,4 +279,6 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable
         public ulong Free;
         public ulong Used;
     }
+
+    private readonly record struct NvidiaDevice(nint Handle, string? Id, string DisplayName, ulong TotalMemory);
 }

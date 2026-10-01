@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+    <Compile Include="..\SensorHostProtocol\SensorHostProtocol.cs" Link="SensorHostProtocol.cs" />
+    <Compile Include="..\SensorHostProtocol\SensorServiceIdentity.cs" Link="SensorServiceIdentity.cs" />
+    <Compile Include="..\SensorHostCore\CpuPackageReader.cs" Link="CpuPackageReader.cs" />
+    <Compile Include="..\Metrics\Windows\CpuSensorSelection.cs" Link="CpuSensorSelection.cs" />
+    <Compile Include="..\Platform\Windows\PawnIoDeviceAccessProbe.cs" Link="PawnIoDeviceAccessProbe.cs" />
+    <Compile Include="..\SensorServiceSetup\*.cs" LinkBase="SensorServiceSetup" />
+  </ItemGroup>
+</Project>

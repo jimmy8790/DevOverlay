@@ -9,6 +9,17 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>assets\DevOverlay.ico</ApplicationIcon>
   </PropertyGroup>
+  <!-- Release packaging publishes with -r win-x64: one self-contained exe. Natives are self-extracted to %TEMP%\.net (user-private).
+       Trimming and bundle compression stay off (WPF/WinRT/reflection; compression added ~0.4 s startup and ~150 MB RAM for no ZIP gain). -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- The referenced helper projects are only built (never loaded from this package); keep them out of the bundle. -->
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove="DevOverlay.Tests\**\*.cs" />
     <Compile Remove="DevOverlay.SensorHost\**\*.cs" />
@@ -19,8 +30,8 @@
     <Resource Include="assets\DevOverlay.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="DevOverlay.SensorHost\DevOverlay.SensorHost.csproj" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="DevOverlay.SensorService\DevOverlay.SensorService.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="DevOverlay.SensorHost\DevOverlay.SensorHost.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="DevOverlay.SensorService\DevOverlay.SensorService.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />

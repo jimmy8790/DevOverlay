@@ -2,8 +2,10 @@
 .SYNOPSIS
   Builds the win-x64 self-contained release package under release/ (never committed).
 .NOTES
-  Layout: DevOverlay.exe at the package root, SensorService\ as its own self-contained subfolder
-  (the app looks for SensorService\DevOverlay.SensorService.exe next to itself).
+  Layout: one self-contained single-file DevOverlay.exe at the package root (WPF natives are self-extracted to %TEMP%\.net at run time),
+  and SensorService\ with one self-contained single-file DevOverlay.SensorService.exe plus its two native helpers
+  (not self-extracted: the LocalSystem service must only load code from its protected install folder).
+  The package must be built in a scratch -OutputRoot unless it is the real release: the default release\ folder is replaced.
   The unused SensorHost prototype, PDBs and diagnostics are not shipped; PDBs go to a separate symbols ZIP.
 #>
 [CmdletBinding()]
@@ -29,15 +31,13 @@ New-Item -ItemType Directory -Force $stage, $symStage | Out-Null
 
 Push-Location $repo
 try {
-    dotnet publish DevOverlay.csproj -c Release -r win-x64 --self-contained true "-p:PathMap=$repo\=/_/" -o $stage
+    # Single-file/self-contained settings live in the project files and apply whenever a RuntimeIdentifier is given.
+    dotnet publish DevOverlay.csproj -c Release -r win-x64 "-p:PathMap=$repo\=/_/" -o $stage
     if ($LASTEXITCODE) { throw 'publish DevOverlay failed' }
-    dotnet publish DevOverlay.SensorService\DevOverlay.SensorService.csproj -c Release -r win-x64 --self-contained true "-p:PathMap=$repo\=/_/" -o (Join-Path $stage 'SensorService')
+    dotnet publish DevOverlay.SensorService\DevOverlay.SensorService.csproj -c Release -r win-x64 "-p:PathMap=$repo\=/_/" -o (Join-Path $stage 'SensorService')
     if ($LASTEXITCODE) { throw 'publish SensorService failed' }
 }
 finally { Pop-Location }
-
-# ProjectReference(ReferenceOutputAssembly=false) leaks the helper apphosts into the app root; the prototype host is unused at runtime.
-Get-ChildItem $stage -File | Where-Object { $_.Name -like 'DevOverlay.SensorHost.*' -or $_.Name -like 'DevOverlay.SensorService.*' } | Remove-Item -Force
 
 # Symbols travel separately.
 foreach ($pdb in Get-ChildItem $stage -Recurse -Filter *.pdb) {
@@ -55,7 +55,9 @@ $licenses = Join-Path $stage 'licenses'
 New-Item -ItemType Directory -Force $licenses | Out-Null
 $nuget = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget\packages' }
 # Use the exact runtime versions the publish embedded, not whatever is newest in the NuGet cache.
-$frameworks = (Get-Content (Join-Path $stage 'DevOverlay.runtimeconfig.json') -Raw | ConvertFrom-Json).runtimeOptions.includedFrameworks
+# A single-file publish has no loose runtimeconfig/deps.json, so read them from the build output the bundle was made from.
+$buildOut = Join-Path $repo 'bin\Release\net8.0-windows10.0.19041.0\win-x64'
+$frameworks = (Get-Content (Join-Path $buildOut 'DevOverlay.runtimeconfig.json') -Raw | ConvertFrom-Json).runtimeOptions.includedFrameworks
 $coreVersion = ($frameworks | Where-Object { $_.name -eq 'Microsoft.NETCore.App' }).version
 $desktopVersion = ($frameworks | Where-Object { $_.name -eq 'Microsoft.WindowsDesktop.App' }).version
 if (-not $coreVersion -or -not $desktopVersion) { throw 'Could not read the published runtime versions.' }
@@ -64,7 +66,7 @@ $desktopDir = Join-Path $nuget "microsoft.windowsdesktop.app.runtime.win-x64\$de
 Copy-Item (Join-Path $rtDir 'LICENSE.TXT') (Join-Path $licenses 'dotnet-runtime-LICENSE.txt')
 Copy-Item (Join-Path $rtDir 'THIRD-PARTY-NOTICES.TXT') (Join-Path $licenses 'dotnet-runtime-THIRD-PARTY-NOTICES.txt')
 Copy-Item (Join-Path $desktopDir 'LICENSE') (Join-Path $licenses 'windowsdesktop-runtime-LICENSE.txt')
-$hidVersion = ((Get-Content (Join-Path $stage 'DevOverlay.deps.json') -Raw | ConvertFrom-Json).libraries.PSObject.Properties.Name |
+$hidVersion = ((Get-Content (Join-Path $buildOut 'DevOverlay.deps.json') -Raw | ConvertFrom-Json).libraries.PSObject.Properties.Name |
     Where-Object { $_ -like 'HidSharp/*' } | Select-Object -First 1) -replace '^HidSharp/', ''
 if (-not $hidVersion) { throw 'HidSharp version not found in deps.json.' }
 Copy-Item (Join-Path $nuget "hidsharp\$hidVersion\LICENSE.txt") (Join-Path $licenses 'HidSharp-LICENSE.txt')
@@ -75,6 +77,13 @@ $forbidden = Get-ChildItem $stage -Recurse -File | Where-Object {
     $_.Extension -in '.pdb', '.trx', '.log', '.csv', '.py', '.cs', '.ps1' -or $_.Name -match 'Tests|xunit|SensorHost'
 }
 if ($forbidden) { throw "Development files in package: $($forbidden.FullName -join ', ')" }
+# Exact layout: any extra loose file (for example a leaked helper exe or a stray DLL) fails the build instead of shipping.
+$allowed = 'DevOverlay.exe', 'LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md',
+    'SensorService\DevOverlay.SensorService.exe', 'SensorService\MonoPosixHelper.dll', 'SensorService\libMonoPosixHelper.dll',
+    'licenses\dotnet-runtime-LICENSE.txt', 'licenses\dotnet-runtime-THIRD-PARTY-NOTICES.txt', 'licenses\HidSharp-LICENSE.txt',
+    'licenses\Mono-LICENSE.txt', 'licenses\MPL-2.0.txt', 'licenses\windowsdesktop-runtime-LICENSE.txt', 'licenses\zlib-minizip-NOTICE.txt'
+$unexpected = Get-ChildItem $stage -Recurse -File | ForEach-Object { $_.FullName.Substring($stage.Length).TrimStart('\') } | Where-Object { $_ -notin $allowed }
+if ($unexpected) { throw "Unexpected files in package: $($unexpected -join ', ')" }
 foreach ($required in 'DevOverlay.exe', 'SensorService\DevOverlay.SensorService.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
         'licenses\Mono-LICENSE.txt', 'licenses\MPL-2.0.txt', 'licenses\zlib-minizip-NOTICE.txt') {
     if (-not (Test-Path (Join-Path $stage $required))) { throw "Required package file missing: $required" }

@@ -1,11 +1,19 @@
 # Third-Party Notices
 
-DevOverlay v0.1.0 (win-x64) redistributes the third-party components below, unmodified, as part of the
+DevOverlay v0.1.1 (win-x64) redistributes the third-party components below, unmodified, as part of the
 self-contained release package. Each entry was checked against the exact restored NuGet package
 (`.nuspec` license field and any license file inside the `.nupkg`). Where the package itself carries no license text,
 the license referenced by the package metadata was retrieved and is included verbatim in `licenses\`.
 
 Third-party components remain under their own licenses; they are not covered by, or relicensed under, DevOverlay's own MIT license (see `LICENSE`).
+
+## Package layout
+
+The release is built as self-contained single-file executables. The managed components listed below are embedded, unmodified, in
+`DevOverlay.exe` and in `SensorService\DevOverlay.SensorService.exe`; the "Shipped files" column names the original assembly files.
+The WPF native libraries (`*_cor3.dll`) and the Mono helper DLLs are embedded in `DevOverlay.exe` and are extracted unmodified to
+`%TEMP%\.net\DevOverlay\` the first time it runs. `MonoPosixHelper.dll` and `libMonoPosixHelper.dll` also remain as normal files next to
+`DevOverlay.SensorService.exe`. This layout does not change any license terms; all license texts remain as normal files in this package.
 
 ## Redistributed components
 

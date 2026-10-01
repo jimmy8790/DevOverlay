@@ -67,6 +67,34 @@ public sealed class SensorServiceSetupTests : IDisposable
     }
 
     [Fact]
+    public void SingleFileReleasePayloadInstallsWithItsNativeHelpersAndNoLooseManagedFiles()
+    {
+        var source = Path.Combine(_sandbox, "Downloads", "DevOverlay v0.2.0", "SensorService");
+        Directory.CreateDirectory(source);
+        foreach (var name in new[] { SensorServiceInstallLayout.ExecutableName, "MonoPosixHelper.dll", "libMonoPosixHelper.dll" })
+            File.WriteAllText(Path.Combine(source, name), "bundle");
+
+        Installer().Install(source);
+
+        Assert.Equal(_layout.QuotedExecutablePath, _scm.ImagePath);
+        var installed = Directory.GetFiles(_layout.CurrentDirectory).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(["DevOverlay.SensorService.exe", "MonoPosixHelper.dll", "libMonoPosixHelper.dll"], installed);
+    }
+
+    [Fact]
+    public void PayloadWithoutTheServiceExecutableIsRejectedBeforeAnyChange()
+    {
+        var source = Path.Combine(_sandbox, "Downloads", "DevOverlay v0.2.0", "SensorService");
+        Directory.CreateDirectory(source);
+        File.WriteAllText(Path.Combine(source, "MonoPosixHelper.dll"), "native only");
+
+        Assert.Throws<FileNotFoundException>(() => Installer().Install(source));
+
+        Assert.Empty(_scm.Calls);
+        Assert.False(Directory.Exists(_layout.CurrentDirectory));
+    }
+
+    [Fact]
     public void RepairStopsFirstRefreshesProtectedCopyAndMigratesLegacyImagePath()
     {
         var legacy = CreatePayload("repo\\bin\\Debug\\net8.0-windows10.0.19041.0\\SensorService", "legacy");
@@ -189,7 +217,7 @@ public sealed class SensorServiceSetupTests : IDisposable
         Assert.Throws<DirectoryNotFoundException>(() => payload.ValidateSource(Path.Combine(_sandbox, "missing")));
 
         var incomplete = CreatePayload("incomplete", "v1");
-        File.Delete(Path.Combine(incomplete, "DevOverlay.SensorService.dll"));
+        File.Delete(Path.Combine(incomplete, SensorServiceInstallLayout.ExecutableName));
         Assert.Throws<FileNotFoundException>(() => payload.ValidateSource(incomplete));
 
         Directory.CreateDirectory(_layout.CurrentDirectory);

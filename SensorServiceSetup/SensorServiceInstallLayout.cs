@@ -11,13 +11,8 @@ public sealed class SensorServiceInstallLayout
     public const string RootDirectoryName = "DevOverlaySensorService";
     public const string ExecutableName = "DevOverlay.SensorService.exe";
 
-    public static readonly IReadOnlyList<string> RequiredPayloadFiles =
-    [
-        ExecutableName,
-        "DevOverlay.SensorService.dll",
-        "DevOverlay.SensorService.deps.json",
-        "DevOverlay.SensorService.runtimeconfig.json"
-    ];
+    // The release payload is a single self-contained exe (plus native helpers beside it); everything else in the source folder is copied as-is.
+    public static readonly IReadOnlyList<string> RequiredPayloadFiles = [ExecutableName];
 
     public SensorServiceInstallLayout(string programFilesDirectory)
     {

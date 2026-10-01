@@ -2,7 +2,7 @@
 
 Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 CPU, GPU, 저장장치, 네트워크, FPS, 프레임 타임, 지연 시간, Codex/Claude 사용량을 그룹별로 표시합니다.
 
-현재 버전: **v0.1.0** (Windows 10/11 x64)
+현재 버전: **v0.1.1** (Windows 10/11 x64)
 
 ## 구현된 기능
 
@@ -16,7 +16,8 @@ Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 
 
 ## 설치와 첫 실행
 
-1. `DevOverlay-v0.1.0-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained).
+1. `DevOverlay-v0.1.1-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained, 단일 파일 `DevOverlay.exe`).
+   첫 실행 시 필요한 네이티브 구성 요소를 준비하므로 평소보다 몇 초 더 걸릴 수 있습니다. 이 구성 요소는 `%TEMP%\.net\DevOverlay\`에 풀리며 앱 폴더에는 아무것도 쓰지 않습니다. 이후 실행은 다시 풀지 않아 평소와 같은 속도로 시작됩니다.
 2. `DevOverlay.exe`를 실행합니다. 서명되지 않은 바이너리이므로 Windows SmartScreen 경고가 나올 수 있습니다.
 3. 트레이 아이콘의 **Open Settings**로 설정을 엽니다. 설정은 `%LOCALAPPDATA%\DevOverlay\settings.json`에 저장됩니다.
 
@@ -30,7 +31,7 @@ Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 
 
 ### Sensor Service 설치 위치
 
-Sensor Service는 **LocalSystem 권한의 Windows 서비스**입니다. 압축을 푼 폴더의 `SensorService\`는 설치 원본으로만 쓰이며, 서비스가 직접 실행하지 않습니다.
+Sensor Service는 **LocalSystem 권한의 Windows 서비스**입니다. 압축을 푼 폴더의 `SensorService\`(`DevOverlay.SensorService.exe` 단일 파일과 네이티브 헬퍼 `MonoPosixHelper.dll`, `libMonoPosixHelper.dll`)는 설치 원본으로만 쓰이며, 서비스가 직접 실행하지 않습니다. 서비스는 네이티브 코드를 임시 폴더로 풀지 않고, 보호된 설치 폴더의 파일만 로드합니다.
 
 - *Install / Repair Sensor Service*는 관리자 권한으로 원본을 `%ProgramFiles%\DevOverlaySensorService\current\`에 복사합니다.
 - 이 폴더는 SYSTEM과 Administrators만 수정할 수 있고 Users는 읽기·실행만 가능하도록 ACL이 설정됩니다. 설치 프로그램은 이 ACL과 소유자를 검증한 뒤에만 서비스를 해당 위치로 등록합니다.
@@ -43,6 +44,7 @@ Claude 상태줄 연동은 `DevOverlay.exe`의 경로를 기록하므로, 앱 �
 
 ## 알려진 제한
 
+- 1% Low는 최근 약 15초의 프레임을 기준으로 계산되므로 게임 로딩 직후의 긴 프레임이 잠시 반영될 수 있습니다. 로딩이 끝난 뒤 약 15초가 지나면 현재 상태에 맞는 값으로 돌아옵니다.
 - Frame Generation처럼 하나의 Present가 여러 번 표시되는 경우, 같은 Present QPC가 반복된 행은 1% Low 표본에서 제외되어 표시 이벤트가 적게 계산될 수 있습니다.
 - Windows x64만 지원합니다. 이 릴리스는 코드 서명되어 있지 않습니다.
 

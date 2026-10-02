@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 PERIODS_MS = (100.0, 250.0, 500.0, 1000.0)
+PRODUCTION_WINDOW_S = 3.0  # PresentedFrameWindow.OnePercentLowWindow
 FRAME_TYPES = {0: "NOT_SET", 1: "UNSPECIFIED", 2: "APPLICATION", 3: "REPEATED", 50: "INTEL_XEFG", 100: "AMD_AFMF"}
 PRESENT_MODES = {0: "UNKNOWN", 1: "HARDWARE_LEGACY_FLIP", 2: "HARDWARE_LEGACY_COPY_TO_FRONT_BUFFER",
                  3: "HARDWARE_INDEPENDENT_FLIP", 4: "COMPOSED_FLIP", 5: "COMPOSED_COPY_WITH_GPU_GDI",
@@ -183,8 +184,8 @@ def analyze(capture: Capture, out) -> dict:
     flagged = {(row["Pid"], row["SwapChain"], row["PresentQpc"]) for row in production if row.get("InSlowest1Pct") == "1"}
     prod_stats = stats(ms(row, column) for row in production)
     present_stats = stats(ms(row) for row in present_population)
-    cutoff = end_qpc - int(freq * 15)
-    final15 = stats(ms(row, column) for row in production if cutoff <= qpc(row) <= end_qpc)
+    cutoff = end_qpc - int(freq * PRODUCTION_WINDOW_S)
+    final_window = stats(ms(row, column) for row in production if cutoff <= qpc(row) <= end_qpc)
     result = {"production": prod_stats, "present": present_stats, "slowest": slowest, "column": column}
 
     def p(text=""):
@@ -196,7 +197,7 @@ def analyze(capture: Capture, out) -> dict:
       f"Reason={capture.meta.get('CompletionReason')}")
     p()
     p(f"[Production population ({column}), whole capture] {describe(prod_stats)}")
-    p(f"[Production population, final 15 s]   {describe(final15)}")
+    p(f"[Production population, final {PRODUCTION_WINDOW_S:g} s]   {describe(final_window)}")
     p(f"[C# PresentedFrameWindow.Calculate at end] {capture.meta.get('ProductionLowAtEnd') or 'N/A'}")
     p(f"InSlowest1Pct cross-check: python={len(slow_keys)} csharp={len(flagged)} "
       f"{'MATCH' if slow_keys == flagged else 'MISMATCH (ties may differ only if equal intervals)'}")

@@ -2,7 +2,7 @@
 
 Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 CPU, GPU, 저장장치, 네트워크, FPS, 프레임 타임, 지연 시간, Codex/Claude 사용량을 그룹별로 표시합니다.
 
-현재 버전: **v0.1.1** (Windows 10/11 x64)
+현재 버전: **v0.1.2** (Windows 10/11 x64)
 
 ## 구현된 기능
 
@@ -10,13 +10,13 @@ Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 
 - CPU 사용률, CPU 패키지 온도·전력(Sensor Service + PawnIO 필요)
 - NVIDIA GPU 사용률·온도·전력·VRAM(NVIDIA 드라이버의 NVML 사용)
 - 디스크 읽기/쓰기, 네트워크 업로드/다운로드 및 오늘 사용량(장치 선택 가능)
-- FPS, 1% Low(표시 간격 기준, 15초 창의 가장 느린 1% 평균), 프레임 타임, Render Present Latency(Intel PresentMon 서비스 필요)
+- FPS, 1% Low(표시 간격 기준, 최근 3초 창의 가장 느린 1% 평균), 프레임 타임, Render Present Latency(Intel PresentMon 서비스 필요)
 - Codex 계정 한도, Claude 사용량(각 CLI가 설치되어 있어야 함)
 - Settings: 그룹 표시/순서, 위치(이동/초기화), 갱신 주기(250–2000 ms), 색상·투명도 등 외형, HUD 전역 단축키(기본 `Ctrl+Shift+O`)
 
 ## 설치와 첫 실행
 
-1. `DevOverlay-v0.1.1-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained, 단일 파일 `DevOverlay.exe`).
+1. `DevOverlay-v0.1.2-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained, 단일 파일 `DevOverlay.exe`).
    첫 실행 시 필요한 네이티브 구성 요소를 준비하므로 평소보다 몇 초 더 걸릴 수 있습니다. 이 구성 요소는 `%TEMP%\.net\DevOverlay\`에 풀리며 앱 폴더에는 아무것도 쓰지 않습니다. 이후 실행은 다시 풀지 않아 평소와 같은 속도로 시작됩니다.
 2. `DevOverlay.exe`를 실행합니다. 서명되지 않은 바이너리이므로 Windows SmartScreen 경고가 나올 수 있습니다.
 3. 트레이 아이콘의 **Open Settings**로 설정을 엽니다. 설정은 `%LOCALAPPDATA%\DevOverlay\settings.json`에 저장됩니다.
@@ -44,7 +44,7 @@ Claude 상태줄 연동은 `DevOverlay.exe`의 경로를 기록하므로, 앱 �
 
 ## 알려진 제한
 
-- 1% Low는 최근 약 15초의 프레임을 기준으로 계산되므로 게임 로딩 직후의 긴 프레임이 잠시 반영될 수 있습니다. 로딩이 끝난 뒤 약 15초가 지나면 현재 상태에 맞는 값으로 돌아옵니다.
+- 1% Low는 최근 약 3초의 프레임을 기준으로 계산되어 현재 게임 상태를 빠르게 반영합니다. 최근 3초 동안 화면에 표시된 프레임 중 가장 느린 1%의 평균으로 계산합니다. 긴 프레임(히치)이 생기면 약 3초 동안 값이 내려갔다가 돌아옵니다. 30 FPS 근처에서는 3초 창의 프레임 수가 적어 가장 느린 프레임 1개가 값이 되므로, 높은 FPS보다 값이 더 크게 움직입니다. 다른 오버레이와는 창 길이·표시 지연·집계 방식이 달라 순간값이 다를 수 있습니다.
 - Frame Generation처럼 하나의 Present가 여러 번 표시되는 경우, 같은 Present QPC가 반복된 행은 1% Low 표본에서 제외되어 표시 이벤트가 적게 계산될 수 있습니다.
 - Windows x64만 지원합니다. 이 릴리스는 코드 서명되어 있지 않습니다.
 

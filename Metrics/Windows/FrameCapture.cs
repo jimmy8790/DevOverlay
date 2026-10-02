@@ -22,7 +22,7 @@ internal sealed record FrameCaptureOptions(
     internal const string ProcessVariable = "DEVOVERLAY_FRAME_CAPTURE_PROCESS";
     internal const int DefaultMaxRecords = 400_000;
     internal static readonly TimeSpan DefaultDuration = TimeSpan.FromSeconds(60);
-    // Default delay lets the 15 s production window fill, so the end-of-capture production value is comparable.
+    // Default delay lets target acquisition and the production 1% window settle, so the end-of-capture value is comparable.
     internal static readonly TimeSpan DefaultStartDelay = TimeSpan.FromSeconds(15);
 
     internal static string DefaultOutputDirectory => Path.Combine(
@@ -392,7 +392,7 @@ internal sealed class CsvFrameCaptureWriter : IFrameCaptureWriter
         writer.WriteLine(string.Create(c, $"# QpcFrequency={result.QpcFrequency} StartQpc={result.StartQpc} EndQpc={result.EndQpc} StartLocal={result.StartWallClock:O}"));
         writer.WriteLine(string.Create(c, $"# DurationSeconds={result.Options.Duration.TotalSeconds:0} DelaySeconds={result.Options.StartDelay.TotalSeconds:0} ProcessFilter={result.Options.ProcessFilter ?? "(none)"} PrimaryPid={result.PrimaryPid} CompletionReason={result.CompletionReason}"));
         writer.WriteLine(string.Create(c, $"# Truncated={result.Truncated} MarksTruncated={result.MarksTruncated} MaxRecords={result.Options.MaxRecords} Records={result.Records.Count} Marks={result.Marks.Count}"));
-        writer.WriteLine(string.Create(c, $"# ProductionLowAtEnd={Format(result.ProductionLowAtEnd)} (PresentedFrameWindow.Calculate at capture end, 15 s window)"));
+        writer.WriteLine(string.Create(c, $"# ProductionLowAtEnd={Format(result.ProductionLowAtEnd)} (PresentedFrameWindow.Calculate at capture end, {PresentedFrameWindow.OnePercentLowWindow.TotalSeconds:0.#} s window)"));
         writer.WriteLine($"# QueryTier={result.QueryTier} Columns={string.Join(';', result.Columns.Select(column => string.Create(c, $"{column.Name}:metric={column.Metric}:size={column.DataSize}")))}");
         foreach (var (pid, name) in result.ProcessNames.OrderBy(pair => pair.Key))
             writer.WriteLine(string.Create(c, $"# Process Pid={pid} Name={name}"));

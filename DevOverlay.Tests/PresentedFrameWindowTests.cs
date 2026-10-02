@@ -87,6 +87,53 @@ public sealed class PresentedFrameWindowTests
     }
 
     [Fact]
+    public void WindowCoversTheLastThreeSeconds()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(3), PresentedFrameWindow.OnePercentLowWindow);
+    }
+
+    [Fact]
+    public void HitchLeavesTheWindowExactlyThreeSecondsAfterItsPresent()
+    {
+        // 144 FPS for 3 s with one 1000 ms display interval presented at hitchQpc.
+        var window = new PresentedFrameWindow();
+        var second = (ulong)Stopwatch.Frequency;
+        var frame = second / 144;
+        var start = (ulong)Stopwatch.GetTimestamp() - 10 * second;
+        var hitchQpc = start + 144 * frame;
+        for (ulong index = 0; index < 3 * 144; index++)
+        {
+            var qpc = start + index * frame;
+            Assert.True(window.Add(qpc, 6.94, qpc == hitchQpc ? 1000 : 6.94, start + 3 * second));
+        }
+        Assert.True(window.Calculate(hitchQpc + 3 * second) < 20); // age exactly 3 s: still inside
+        Assert.Equal(1000 / 6.94, window.Calculate(hitchQpc + 3 * second + 1)!.Value, 9);
+    }
+
+    [Fact]
+    public void HitchOlderThanTheWindowNoLongerLowersOnePercentLow()
+    {
+        var window = new PresentedFrameWindow();
+        var second = (ulong)Stopwatch.Frequency;
+        var now = (ulong)Stopwatch.GetTimestamp();
+        window.Add(now - 10 * second, 2000, 2000, now);
+        for (ulong index = 400; index > 0; index--) window.Add(now - index * second / 144, 6.94, 6.94, now);
+        Assert.Equal(1000 / 6.94, window.Calculate(now)!.Value, 9);
+    }
+
+    [Fact]
+    public void ThirtyFpsUsesTheSingleSlowestFrameOfTheWindow()
+    {
+        // 3 s at 30 FPS: N = 90, ceil(0.9) = 1 sample, so the value is the slowest displayed frame itself.
+        var window = new PresentedFrameWindow();
+        var second = (ulong)Stopwatch.Frequency;
+        var now = (ulong)Stopwatch.GetTimestamp();
+        for (ulong index = 90; index > 1; index--) window.Add(now - index * second / 30, 33.3, 33.3, now);
+        window.Add(now - second / 30, 50, 50, now);
+        Assert.Equal(20, window.Calculate(now)!.Value, 9);
+    }
+
+    [Fact]
     public void SubsetRoundingUsesCeiling()
     {
         var window = new PresentedFrameWindow();

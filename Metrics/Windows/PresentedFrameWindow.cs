@@ -23,6 +23,12 @@ internal enum FrameAdmission : byte
 /// </summary>
 internal sealed class PresentedFrameWindow
 {
+    /// <summary>
+    /// 1% Low covers the displayed frames of the last 3 s. Measured against NVIDIA Overlay (Modern Warships, 2026-10-02):
+    /// 3 s was the closest window without adding output delay, and a 15 s window kept one hitch on the HUD for 15 s.
+    /// </summary>
+    internal static readonly TimeSpan OnePercentLowWindow = TimeSpan.FromSeconds(3);
+    private static readonly ulong WindowTicks = (ulong)(Stopwatch.Frequency * OnePercentLowWindow.TotalSeconds);
     private readonly Queue<(ulong Qpc, double Ms)> _samples = new();
     internal ulong LastQpc { get; private set; }
 
@@ -67,7 +73,7 @@ internal sealed class PresentedFrameWindow
 
     private void Evict(ulong now)
     {
-        while (_samples.TryPeek(out var sample) && (now - sample.Qpc > (ulong)(Stopwatch.Frequency * 15) || _samples.Count > 65536))
+        while (_samples.TryPeek(out var sample) && (now - sample.Qpc > WindowTicks || _samples.Count > 65536))
             _samples.Dequeue();
     }
 }

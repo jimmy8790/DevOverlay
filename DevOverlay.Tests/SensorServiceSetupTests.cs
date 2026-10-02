@@ -77,7 +77,7 @@ public sealed class SensorServiceSetupTests : IDisposable
         Installer().Install(source);
 
         Assert.Equal(_layout.QuotedExecutablePath, _scm.ImagePath);
-        var installed = Directory.GetFiles(_layout.CurrentDirectory).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray();
+        var installed = Directory.GetFiles(_layout.CurrentDirectory).Select(path => Path.GetFileName(path)!).Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(["DevOverlay.SensorService.exe", "MonoPosixHelper.dll", "libMonoPosixHelper.dll"], installed);
     }
 

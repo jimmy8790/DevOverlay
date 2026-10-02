@@ -22,7 +22,7 @@ internal sealed record VariantResult(string Name, string Rule, FrameStatistics? 
 internal sealed record FrameCaptureSummary(
     uint PrimaryPid,
     FrameStatistics? Production,
-    FrameStatistics? ProductionFinal15s,
+    FrameStatistics? ProductionFinalWindow,
     double? ProductionLowAtEnd,
     IReadOnlyList<FrameCaptureRecord> Slowest,
     HashSet<(uint Pid, ulong SwapChain, ulong Qpc)> SlowestKeys,
@@ -88,8 +88,9 @@ internal static class FrameCaptureAnalyzer
         var slowestKeys = slowest.Select(record => (Pid: record.Pid, SwapChain: record.SwapChain, Qpc: record.PresentQpc)).ToHashSet();
         var productionStats = Statistics(production.Select(record => record.MsBetweenDisplayChange));
         var presentStats = Statistics(presentPopulation.Select(record => record.MsBetweenPresents));
-        var finalCutoff = result.EndQpc > (ulong)(frequency * 15) ? result.EndQpc - (ulong)(frequency * 15) : 0;
-        var final15 = Statistics(production.Where(record => record.PresentQpc >= finalCutoff && record.PresentQpc <= result.EndQpc)
+        var windowTicks = (ulong)(frequency * PresentedFrameWindow.OnePercentLowWindow.TotalSeconds);
+        var finalCutoff = result.EndQpc > windowTicks ? result.EndQpc - windowTicks : 0;
+        var finalWindow = Statistics(production.Where(record => record.PresentQpc >= finalCutoff && record.PresentQpc <= result.EndQpc)
             .Select(record => record.MsBetweenDisplayChange));
 
         var admissions = records.Where(record => record.Pid == primary).GroupBy(record => record.Admission)
@@ -120,7 +121,7 @@ internal static class FrameCaptureAnalyzer
         var activity = Activity(result.Marks, production, slowestKeys, frequency);
         var variants = Variants(presentPopulation, presentStats);
 
-        var summary = new FrameCaptureSummary(primary, productionStats, final15, result.ProductionLowAtEnd, slowest.Take(WorstListSize).ToArray(),
+        var summary = new FrameCaptureSummary(primary, productionStats, finalWindow, result.ProductionLowAtEnd, slowest.Take(WorstListSize).ToArray(),
             slowestKeys, admissions, categories, streams, candidatePids, chainChanges, presentStats, displayStats, displayRows.Length,
             periodicity, histogram, activity, variants, "");
         return summary with { Text = Format(result, summary, slowest) };
@@ -281,7 +282,7 @@ internal static class FrameCaptureAnalyzer
         Line($"QueryTier={result.QueryTier} Records={result.Records.Count} Truncated={result.Truncated} Marks={result.Marks.Count} MarksTruncated={result.MarksTruncated}");
         text.AppendLine();
         Line($"[Production population (MsBetweenDisplayChange), whole capture] {Stats(summary.Production)}");
-        Line($"[Production population, final 15 s]   {Stats(summary.ProductionFinal15s)}");
+        Line($"[Production population, final {PresentedFrameWindow.OnePercentLowWindow.TotalSeconds:0.#} s]   {Stats(summary.ProductionFinalWindow)}");
         Line($"[Production PresentedFrameWindow.Calculate at end] {(summary.ProductionLowAtEnd is { } low ? low.ToString("F2", c) : "N/A")}");
         Line($"Admissions (primary PID): {string.Join(' ', summary.Admissions.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}={pair.Value}"))}");
         text.AppendLine();

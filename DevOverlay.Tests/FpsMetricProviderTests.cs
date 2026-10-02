@@ -254,9 +254,10 @@ public sealed class FpsMetricProviderTests
         var switched = await provider.CollectAsync(default);
         Assert.Equal(144, Value(switched, MetricId.FramesPerSecond));
         Assert.Null(Value(switched, MetricId.OnePercentLow));
-        clock.Advance(TimeSpan.FromSeconds(5));
+        // Warm-up equals the 3 s window: the new target's 1% Low stays unavailable until its own window can be full.
+        clock.Advance(TimeSpan.FromSeconds(2.9));
         Assert.Null(Value(await provider.CollectAsync(default), MetricId.OnePercentLow));
-        clock.Advance(TimeSpan.FromSeconds(6));
+        clock.Advance(TimeSpan.FromSeconds(0.1));
         Assert.Equal(100, Value(await provider.CollectAsync(default), MetricId.OnePercentLow));
         await provider.DisposeAsync();
     }

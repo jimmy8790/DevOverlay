@@ -133,7 +133,7 @@ internal sealed class FpsMetricProvider : IMetricProvider, IAsyncDisposable
     private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan TargetCheckInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan SlowPollInterval = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan SlowWarmup = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan SlowWarmup = PresentedFrameWindow.OnePercentLowWindow;
     /// <summary>
     /// Only advancing raw Present QPC refreshes freshness; a successful aggregate query alone cannot do so.
     /// Identical FPS with new frames remains fresh. No source progression for this interval invalidates the target

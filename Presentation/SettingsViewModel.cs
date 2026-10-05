@@ -183,6 +183,22 @@ public sealed class SettingsViewModel : ObservableObject
     internal event Action? UpdateCheckRequested;
     internal event Action<string>? LinkOpenRequested;
     internal event Action<string>? PeripheralForgotten;
+    internal event Action<bool>? StartWithWindowsChangeRequested;
+    private bool _startWithWindows;
+    private string _startupStatusText = string.Empty;
+    // The checkbox mirrors the real Run-key state. Ticking it only requests a change; the real result comes back through
+    // UpdateStartupState, which also puts the box back when the change failed.
+    public bool StartWithWindows
+    {
+        get => _startWithWindows;
+        set { if (value == _startWithWindows) return; _startWithWindows = value; OnPropertyChanged(); StartWithWindowsChangeRequested?.Invoke(value); }
+    }
+    public string StartupStatusText { get => _startupStatusText; private set => SetStatusProperty(ref _startupStatusText, value); }
+    internal void UpdateStartupState(DevOverlay.Platform.Windows.StartupStatus status)
+    {
+        if (_startWithWindows != status.IsEnabled) { _startWithWindows = status.IsEnabled; OnPropertyChanged(nameof(StartWithWindows)); }
+        StartupStatusText = status.Error ?? string.Empty;
+    }
     private string _updateStatusText = "Checking for updates...";
     private string _updateDetailText = string.Empty;
     private bool _canViewRelease;

@@ -27,6 +27,8 @@ public partial class App : System.Windows.Application
     private OverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
     private Updates.UpdateChecker? _updateChecker;
+    private readonly StartupRegistration _startupRegistration = new(new CurrentUserRunKey());
+    private InteractiveInstanceGate? _interactiveInstanceGate;
     private SettingsViewModel? _settingsViewModel;
     private System.Windows.Threading.DispatcherTimer? _settingsStatusTimer;
     private TrayIconController? _trayIcon;
@@ -43,11 +45,25 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        if (ClaudeStatusLineBridge.IsInvocation(e.Args))
+        if (!DevOverlayInvocation.IsInteractiveGuiInvocation(e.Args))
         {
             ClaudeStatusLineBridge.Run(Console.In);
+            // This is a short-lived CLI hook, not an interactive WPF session. Do not enter the tray app's asynchronous
+            // shutdown path: it owns services that were never initialized here and can keep the helper process alive.
+            Environment.Exit(0);
             return;
         }
+
+        _interactiveInstanceGate = InteractiveInstanceGate.Acquire();
+        if (!_interactiveInstanceGate.CanStartInteractiveSession)
+        {
+            RuntimeDiagnostics.Write("[Startup] Another interactive DevOverlay instance is already running; exiting this launch.");
+            Shutdown();
+            return;
+        }
+        if (_interactiveInstanceGate.State == InteractiveInstanceState.Unavailable)
+            RuntimeDiagnostics.Write($"[Startup] Interactive instance protection was unavailable: {_interactiveInstanceGate.Error}");
+
         base.OnStartup(e);
 
         _settingsStore = new OverlaySettingsStore();
@@ -67,6 +83,9 @@ public partial class App : System.Windows.Application
             }
         });
         _settings = _settingsStore.Load();
+        // A moved portable folder: keep an already-enabled, DevOverlay-owned startup entry pointing at this executable.
+        try { _startupRegistration.RepairOwnedEntry(); }
+        catch (Exception exception) { RuntimeDiagnostics.Write($"[StartupSetting] Repair skipped: {exception.GetType().Name}"); }
         RuntimeDiagnostics.Write($"[Startup] ExePath={Environment.ProcessPath} PID={Environment.ProcessId} Version={typeof(App).Assembly.GetName().Version} BuildId={typeof(App).Module.ModuleVersionId} SettingsPath={_settingsStore.FilePath} FpsVisible={_settings.EnabledGroups.Contains(MetricCategory.Frame)} LatencyVisible={_settings.EnabledGroups.Contains(MetricCategory.Latency)}");
 #if DEBUG
         _runtimeProbe = e.Args.Contains("--diagnose-runtime", StringComparer.OrdinalIgnoreCase) ||
@@ -216,6 +235,13 @@ public partial class App : System.Windows.Application
         viewModel.CodexRecheckRequested += () => _ = RecheckCodexAsync(viewModel);
         viewModel.ClaudeRecheckRequested += () => _ = RecheckClaudeAsync(viewModel);
         viewModel.LinkOpenRequested += OpenAllowedLink;
+        viewModel.UpdateStartupState(_startupRegistration.Inspect());
+        viewModel.StartWithWindowsChangeRequested += enable =>
+        {
+            var result = _startupRegistration.Apply(enable);
+            // Deferred so a rejected change can put the checkbox back after WPF finishes applying the click.
+            Dispatcher.BeginInvoke(() => viewModel.UpdateStartupState(result));
+        };
         viewModel.PeripheralForgotten += identity => _peripheralBatteryService?.Forget(identity);
         var updateChecker = _updateChecker ??= new Updates.UpdateChecker(
             new Updates.GitHubReleaseSource(Updates.ReleaseVersion.Running(typeof(App).Assembly)?.ToString() ?? "unknown"),
@@ -254,7 +280,12 @@ public partial class App : System.Windows.Application
         {
             Interval = TimeSpan.FromSeconds(5)
         };
-        _settingsStatusTimer.Tick += (_, _) => viewModel.UpdatePresentMonStatus(PresentMonServiceInfo.Read());
+        _settingsStatusTimer.Tick += (_, _) =>
+        {
+            viewModel.UpdatePresentMonStatus(PresentMonServiceInfo.Read());
+            var startup = _startupRegistration.Inspect();
+            if (startup.IsEnabled != viewModel.StartWithWindows) viewModel.UpdateStartupState(startup); // changed outside the app
+        };
         _settingsStatusTimer.Start();
         window.Show();
         _ = PopulateDeviceChoicesAsync(viewModel);
@@ -607,6 +638,8 @@ public partial class App : System.Windows.Application
         }
         if (_fpsUpdateService is not null) await _fpsUpdateService.DisposeAsync();
         await _sensorServiceClient.DisposeAsync();
+        _interactiveInstanceGate?.Dispose();
+        _interactiveInstanceGate = null;
 
         base.OnExit(e);
     }

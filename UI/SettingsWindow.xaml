@@ -27,6 +27,14 @@
           </WrapPanel>
         </StackPanel>
       </GroupBox>
+      <GroupBox x:Name="GeneralGroup" Header="General" Margin="0,0,0,10">
+        <StackPanel Margin="10">
+          <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start DevOverlay with Windows" IsChecked="{Binding StartWithWindows, Mode=TwoWay}"
+                    ToolTip="Starts DevOverlay when you sign in to Windows. Only affects your account and needs no administrator rights." />
+          <TextBlock Text="{Binding StartupStatusText}" TextWrapping="Wrap" Foreground="#B00020" Margin="20,3,0,0" />
+        </StackPanel>
+      </GroupBox>
+
       <GroupBox x:Name="OverlaySettingsGroup" Header="Position" Margin="0,0,0,10">
         <StackPanel Margin="10">
           <TextBlock Text="{Binding PositionModeText}" Margin="0,0,0,6" />

@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-DevOverlay v0.2.0 (win-x64) redistributes the third-party components below, unmodified, as part of the
+DevOverlay v0.2.1 (win-x64) redistributes the third-party components below, unmodified, as part of the
 self-contained release package. Each entry was checked against the exact restored NuGet package
 (`.nuspec` license field and any license file inside the `.nupkg`). Where the package itself carries no license text,
 the license referenced by the package metadata was retrieved and is included verbatim in `licenses\`.

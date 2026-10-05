@@ -2,7 +2,7 @@
 
 Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 CPU, GPU, 저장장치, 네트워크, FPS, 프레임 타임, 지연 시간, Codex/Claude 사용량, 무선 주변기기 배터리를 그룹별로 표시합니다.
 
-현재 버전: **v0.2.0** (Windows 10/11 x64)
+현재 버전: **v0.2.1** (Windows 10/11 x64)
 
 ## 구현된 기능
 
@@ -14,11 +14,12 @@ Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 
 - Codex 계정 한도, Claude 사용량(각 CLI가 설치되어 있어야 함)
 - 무선 주변기기 배터리(마우스, 키보드, 헤드셋 등): Windows·Bluetooth·HID 표준 경로와 검증된 제조사 경로 중 숫자를 제공하는 기기만 표시
 - Settings 상단 About: 실행 중인 버전, GitHub 저장소·Releases 링크, 새 안정 버전 알림
+- Settings 상단 General: *Start DevOverlay with Windows*(Windows 로그인 시 자동 시작, 선택 사항)
 - Settings: 그룹 표시/순서, 위치(이동/초기화), 갱신 주기(250–2000 ms), 색상·투명도 등 외형, HUD 전역 단축키(기본 `Ctrl+Shift+O`)
 
 ## 설치와 첫 실행
 
-1. `DevOverlay-v0.2.0-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained, 단일 파일 `DevOverlay.exe`).
+1. `DevOverlay-v0.2.1-win-x64.zip`을 원하는 폴더에 압축 해제합니다. 앱 자체는 휴대용이며 .NET 설치가 필요 없습니다(self-contained, 단일 파일 `DevOverlay.exe`).
    첫 실행 시 필요한 네이티브 구성 요소를 준비하므로 평소보다 몇 초 더 걸릴 수 있습니다. 이 구성 요소는 `%TEMP%\.net\DevOverlay\`에 풀리며 앱 폴더에는 아무것도 쓰지 않습니다. 이후 실행은 다시 풀지 않아 평소와 같은 속도로 시작됩니다.
 2. `DevOverlay.exe`를 실행합니다. 서명되지 않은 바이너리이므로 Windows SmartScreen 경고가 나올 수 있습니다.
 3. 트레이 아이콘의 **Open Settings**로 설정을 엽니다. 설정은 `%LOCALAPPDATA%\DevOverlay\settings.json`에 저장됩니다.
@@ -30,6 +31,16 @@ Windows용 시스템·개발 지표 오버레이입니다. 한 줄짜리 HUD에 
 | FPS / 1% Low / Frame Time / Latency | Intel PresentMon 서비스 **v2.6.0** | Settings의 *Get PresentMon installer*가 공식 릴리스 페이지를 엽니다. 직접 설치해야 합니다. 설치되어 있지 않으면 해당 값은 N/A로 표시됩니다. |
 | CPU 패키지 온도·전력 | DevOverlay Sensor Service + PawnIO | Settings > CPU의 *Install Sensor Service*(UAC 승인 필요). PawnIO는 같은 화면에서 명시적으로 요청할 때만 다운로드하며(SHA-256 검증 후) UAC 승인으로 설치합니다. 시작 시 자동 설치하지 않습니다. |
 | Codex / Claude 사용량 | `codex` / `claude` CLI 설치와 로그인 | Settings의 AI Usage 안내를 따르세요. Claude 상태줄 연동은 `%USERPROFILE%\.claude\settings.json`을 수정하며, 기존 사용자 정의 statusLine은 덮어쓰지 않습니다. |
+
+## Windows 시작 시 자동 실행
+
+Settings > General의 *Start DevOverlay with Windows*를 켜면 Windows에 로그인할 때 DevOverlay가 자동으로 시작됩니다. 기본값은 꺼짐입니다.
+
+- 현재 사용자 계정의 시작 항목(`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`의 `DevOverlay` 값)만 사용합니다. 관리자 권한과 UAC가 필요 없고, Windows 서비스나 시스템 전체 시작 항목을 만들지 않으며, 다른 프로그램의 시작 항목은 건드리지 않습니다. 끄면 `DevOverlay` 값만 삭제됩니다.
+- 체크박스는 저장된 설정이 아니라 실제 레지스트리 상태를 보여 줍니다. 항목을 직접 지웠다면 체크가 풀린 채로 표시됩니다.
+- 휴대용 앱이라 폴더를 옮기면 경로가 바뀝니다. 이미 켜 둔 상태에서 새 위치의 `DevOverlay.exe`를 직접 실행하면 시작 항목이 새 경로로 자동 갱신됩니다. 꺼 둔 상태를 자동으로 켜지는 않습니다.
+- 자동 시작해도 평소 실행과 같습니다(트레이, HUD, 전역 단축키 등). Sensor Service 설치나 관리자 승인을 요청하지 않습니다.
+- 이미 실행 중인 DevOverlay를 다시 실행하면 두 번째 **GUI** 인스턴스는 조용히 종료됩니다. Windows 시작 항목과 수동 실행이 겹쳐도 HUD·트레이·전역 단축키가 중복 생성되지 않습니다. Claude 상태줄 연동(`--claude-status-line`)은 별도 짧은 실행 경로라 이 제한을 받지 않습니다.
 
 ## 주변기기 배터리
 

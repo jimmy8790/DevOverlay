@@ -15,7 +15,8 @@ public sealed class PeripheralDeviceViewModel : ObservableObject
     public string StatusText => $"{_preference.Type} · {(_reading?.Connected == true ? "Connected" : "Disconnected")} · {(_reading?.ValidPercentage is { } value ? $"{value:0}%" : "N/A")} · {_reading?.Source.ToString() ?? "Unavailable"}";
     public string Detail => _reading?.Status ?? "Saved device; not currently detected";
     // A device that is currently connected is never forgettable; this only removes DevOverlay's saved settings.
-    public bool CanForget => _reading?.Connected != true;
+    public bool IsConnected => _reading?.Connected == true;
+    public bool CanForget => !IsConnected;
     public System.Windows.Visibility ForgetVisibility => CanForget ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     public bool Show { get => _preference.Show; set { if (value == Show) return; _preference = _preference with { Show = value }; OnPropertyChanged(); _changed(_preference); } }
     public string CustomName

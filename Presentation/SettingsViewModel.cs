@@ -153,7 +153,31 @@ public sealed class SettingsViewModel : ObservableObject
     public ObservableCollection<DeviceChoice> StorageDevices => _storageDevices;
     public ObservableCollection<DeviceChoice> FpsTargets => _fpsTargets;
     public ObservableCollection<GroupOrderChoice> GroupOrderChoices => _groupOrder;
+    // All saved devices. The Settings list shows VisiblePeripheralDevices: only connected ones unless the user asks for the rest.
     public ObservableCollection<PeripheralDeviceViewModel> PeripheralDevices { get; } = [];
+    public ObservableCollection<PeripheralDeviceViewModel> VisiblePeripheralDevices { get; } = [];
+    private bool _showDisconnectedPeripherals;
+    public bool ShowDisconnectedPeripherals
+    {
+        get => _showDisconnectedPeripherals;
+        set { if (value == _showDisconnectedPeripherals) return; _showDisconnectedPeripherals = value; OnPropertyChanged(); RefreshVisiblePeripherals(); }
+    }
+    public string PeripheralListHintText => VisiblePeripheralDevices.Count > 0 ? string.Empty
+        : PeripheralDevices.Count == 0 ? "No peripherals detected yet."
+        : "No connected peripherals. Tick \"Show disconnected saved devices\" to manage saved ones.";
+    private void RefreshVisiblePeripherals()
+    {
+        var wanted = PeripheralDevices.Where(row => ShowDisconnectedPeripherals || row.IsConnected).ToList();
+        for (var index = VisiblePeripheralDevices.Count - 1; index >= 0; index--)
+            if (!wanted.Contains(VisiblePeripheralDevices[index])) VisiblePeripheralDevices.RemoveAt(index);
+        for (var index = 0; index < wanted.Count; index++)
+        {
+            if (index < VisiblePeripheralDevices.Count && VisiblePeripheralDevices[index] == wanted[index]) continue;
+            var existing = VisiblePeripheralDevices.IndexOf(wanted[index]);
+            if (existing >= 0) VisiblePeripheralDevices.Move(existing, index); else VisiblePeripheralDevices.Insert(index, wanted[index]);
+        }
+        OnPropertyChanged(nameof(PeripheralListHintText));
+    }
     internal Func<CancellationToken, Task<string>>? PeripheralDiagnosticsFactory { get; set; }
 
     internal event Action? UpdateCheckRequested;
@@ -209,6 +233,7 @@ public sealed class SettingsViewModel : ObservableObject
         _baseSettings = _baseSettings with { PeripheralDevices = _baseSettings.PeripheralDevices
             .Where(item => item.Identity != identity).ToArray() };
         PeripheralDevices.Remove(row);
+        RefreshVisiblePeripherals();
         // The runtime memory goes first so a refresh in between cannot re-add the saved entry.
         PeripheralForgotten?.Invoke(identity);
         SettingsChanged?.Invoke(BuildSettings());
@@ -247,6 +272,7 @@ public sealed class SettingsViewModel : ObservableObject
             .ThenBy(item => item.Identity, StringComparer.Ordinal).ToArray();
         for (var index = 0; index < ordered.Length; index++)
         { var previous = PeripheralDevices.IndexOf(ordered[index]); if (previous != index) PeripheralDevices.Move(previous, index); }
+        RefreshVisiblePeripherals();
     }
 
     public bool CpuEnabled { get => _cpuEnabled; set => SetAndNotify(ref _cpuEnabled, value); }

@@ -316,7 +316,10 @@
           <TextBlock Text="Compatible Windows / Bluetooth / verified vendor devices. Unsupported devices show N/A and start hidden. Blank HUD names use the default label (up to 12 characters)." TextWrapping="Wrap" Foreground="Gray" Margin="0,6,0,6" />
           <Button Content="Export Peripheral Diagnostics" HorizontalAlignment="Left" Click="OnExportPeripheralDiagnosticsClick" Margin="0,0,0,6" />
           <TextBlock Text="Exports product names and hashed identifiers, not raw serials, addresses or HID payloads. Review before sharing." TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,6" />
-          <ItemsControl ItemsSource="{Binding PeripheralDevices}">
+          <CheckBox Content="Show disconnected saved devices" IsChecked="{Binding ShowDisconnectedPeripherals, Mode=TwoWay}" Margin="0,4,0,2"
+                    ToolTip="Lists devices that are not connected right now, so you can rename or Forget them." />
+          <TextBlock Text="{Binding PeripheralListHintText}" TextWrapping="Wrap" Foreground="Gray" Margin="0,4,0,4" />
+          <ItemsControl ItemsSource="{Binding VisiblePeripheralDevices}">
             <ItemsControl.ItemTemplate><DataTemplate>
               <StackPanel Margin="0,4,0,8">
                 <CheckBox Content="{Binding FriendlyName}" IsChecked="{Binding Show, Mode=TwoWay}" />

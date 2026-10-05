@@ -153,6 +153,101 @@ public sealed class SettingsViewModel : ObservableObject
     public ObservableCollection<DeviceChoice> StorageDevices => _storageDevices;
     public ObservableCollection<DeviceChoice> FpsTargets => _fpsTargets;
     public ObservableCollection<GroupOrderChoice> GroupOrderChoices => _groupOrder;
+    public ObservableCollection<PeripheralDeviceViewModel> PeripheralDevices { get; } = [];
+    internal Func<CancellationToken, Task<string>>? PeripheralDiagnosticsFactory { get; set; }
+
+    internal event Action? UpdateCheckRequested;
+    internal event Action<string>? LinkOpenRequested;
+    internal event Action<string>? PeripheralForgotten;
+    private string _updateStatusText = "Checking for updates...";
+    private string _updateDetailText = string.Empty;
+    private bool _canViewRelease;
+    private bool _canCheckForUpdates;
+    private string? _releaseUrl;
+    public string AboutNameText => DevOverlay.Updates.AppLinks.ProductName;
+    public string VersionText { get; } = DevOverlay.Updates.ReleaseVersion.Running(typeof(SettingsViewModel).Assembly) is { } running
+        ? $"Version {running}" : "Version unknown";
+    public string UpdateStatusText { get => _updateStatusText; private set => SetStatusProperty(ref _updateStatusText, value); }
+    public string UpdateDetailText { get => _updateDetailText; private set => SetStatusProperty(ref _updateDetailText, value); }
+    public bool CanViewRelease { get => _canViewRelease; private set => SetStatusProperty(ref _canViewRelease, value); }
+    public bool CanCheckForUpdates { get => _canCheckForUpdates; private set => SetStatusProperty(ref _canCheckForUpdates, value); }
+    internal void RequestUpdateCheck() { if (CanCheckForUpdates) UpdateCheckRequested?.Invoke(); }
+    internal void RequestOpenRepository() => LinkOpenRequested?.Invoke(DevOverlay.Updates.AppLinks.RepositoryUrl);
+    internal void RequestOpenReleases() => LinkOpenRequested?.Invoke(DevOverlay.Updates.AppLinks.ReleasesUrl);
+    internal void RequestOpenLatestRelease() { if (_releaseUrl is not null) LinkOpenRequested?.Invoke(_releaseUrl); }
+    internal void UpdateUpdateStatus(DevOverlay.Updates.UpdateStatus status)
+    {
+        _releaseUrl = status.State == DevOverlay.Updates.UpdateState.UpdateAvailable ? status.ReleaseUrl : null;
+        CanViewRelease = _releaseUrl is not null;
+        CanCheckForUpdates = status.State != DevOverlay.Updates.UpdateState.Checking;
+        var latest = status.Latest is { } version ? $"v{version}" : null;
+        (UpdateStatusText, UpdateDetailText) = status.State switch
+        {
+            DevOverlay.Updates.UpdateState.Checking => ("Checking for updates...", string.Empty),
+            DevOverlay.Updates.UpdateState.UpdateAvailable => ($"A new version is available: {latest}", string.Empty),
+            DevOverlay.Updates.UpdateState.UpToDate => ("You're up to date.", status.BuildIsNewer
+                ? $"This build is newer than the latest published release ({latest})." : $"Latest version: {latest}"),
+            _ => ("Could not check for updates.", UpdateFailureText(status))
+        };
+    }
+
+    private static string UpdateFailureText(DevOverlay.Updates.UpdateStatus status) => status.Failure switch
+    {
+        DevOverlay.Updates.UpdateFailure.Offline => "GitHub could not be reached.",
+        DevOverlay.Updates.UpdateFailure.Timeout => "GitHub did not respond in time.",
+        DevOverlay.Updates.UpdateFailure.RateLimited => "GitHub's request limit was reached. Try again later.",
+        DevOverlay.Updates.UpdateFailure.HttpStatus => $"GitHub returned HTTP {status.StatusCode}.",
+        DevOverlay.Updates.UpdateFailure.NoRelease => "No published release was found.",
+        DevOverlay.Updates.UpdateFailure.UnknownInstalledVersion => "The installed version could not be determined.",
+        _ => "GitHub sent an unexpected response."
+    };
+    // Removes only this identity's saved DevOverlay settings. No device, driver, pairing or receiver is touched.
+    internal bool ForgetPeripheral(string identity)
+    {
+        var row = PeripheralDevices.FirstOrDefault(item => item.Identity == identity);
+        if (row is null || !row.CanForget) return false;
+        _baseSettings = _baseSettings with { PeripheralDevices = _baseSettings.PeripheralDevices
+            .Where(item => item.Identity != identity).ToArray() };
+        PeripheralDevices.Remove(row);
+        // The runtime memory goes first so a refresh in between cannot re-add the saved entry.
+        PeripheralForgotten?.Invoke(identity);
+        SettingsChanged?.Invoke(BuildSettings());
+        return true;
+    }
+    public bool PeripheralBatteriesEnabled
+    {
+        get => _baseSettings.PeripheralBatteriesEnabled;
+        set { if (value == PeripheralBatteriesEnabled) return; _baseSettings = _baseSettings with { PeripheralBatteriesEnabled = value };
+            OnPropertyChanged(); SettingsChanged?.Invoke(BuildSettings()); }
+    }
+    public void UpdatePeripheralDevices(IReadOnlyList<DevOverlay.Peripherals.PeripheralBatteryReading> readings,
+        IReadOnlyList<DevOverlay.Peripherals.PeripheralPreference> preferences)
+    {
+        _baseSettings = _baseSettings with { PeripheralDevices = preferences };
+        var identities = preferences.Select(item => item.Identity).ToHashSet();
+        foreach (var previous in PeripheralDevices.Where(item => !identities.Contains(item.Identity)).ToArray())
+            PeripheralDevices.Remove(previous);
+        foreach (var preference in preferences.OrderBy(item => item.Type).ThenBy(item => item.Identity, StringComparer.Ordinal))
+        {
+            var row = PeripheralDevices.FirstOrDefault(item => item.Identity == preference.Identity);
+            if (row is null)
+            {
+                row = new(preference, changed =>
+                {
+                    _baseSettings = _baseSettings with { PeripheralDevices = _baseSettings.PeripheralDevices
+                        .Select(item => item.Identity == changed.Identity ? changed : item).ToArray() };
+                    SettingsChanged?.Invoke(BuildSettings());
+                });
+                PeripheralDevices.Add(row);
+            }
+            row.UpdatePreference(preference);
+            row.Update(readings.FirstOrDefault(item => item.Identity == preference.Identity));
+        }
+        var ordered = PeripheralDevices.OrderBy(item => preferences.First(preference => preference.Identity == item.Identity).Type)
+            .ThenBy(item => item.Identity, StringComparer.Ordinal).ToArray();
+        for (var index = 0; index < ordered.Length; index++)
+        { var previous = PeripheralDevices.IndexOf(ordered[index]); if (previous != index) PeripheralDevices.Move(previous, index); }
+    }
 
     public bool CpuEnabled { get => _cpuEnabled; set => SetAndNotify(ref _cpuEnabled, value); }
     public bool GpuEnabled { get => _gpuEnabled; set => SetAndNotify(ref _gpuEnabled, value); }
@@ -791,6 +886,7 @@ public sealed class GroupOrderChoice(MetricCategory category) : ObservableObject
         MetricCategory.Frame => "FPS",
         MetricCategory.Latency => "LAT",
         MetricCategory.AiUsage => "AI",
+        MetricCategory.PeripheralBattery => "Peripheral batteries",
         _ => Category.ToString().ToUpperInvariant()
     };
     public bool CanMoveUp { get => _canMoveUp; set { if (_canMoveUp == value) return; _canMoveUp = value; OnPropertyChanged(); } }

@@ -8,6 +8,7 @@ using Xunit;
 
 namespace DevOverlay.Tests;
 
+[Collection(WpfCollection.Name)]
 public sealed class GroupOrderTests
 {
     [Fact]
@@ -85,13 +86,13 @@ public sealed class GroupOrderTests
             store.Save(settings);
             var loaded = store.Load();
             Assert.Equal([MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Storage,
-                MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.AiUsage], loaded.GroupOrder);
+                MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.AiUsage, MetricCategory.PeripheralBattery], loaded.GroupOrder);
             Assert.Equal(settings.Position, loaded.Position);
             Assert.Equal(settings.Appearance, loaded.Appearance);
 
             File.WriteAllText(path, """{"GroupOrder":["Network","FutureGroup","Network","Cpu"]}""");
             Assert.Equal([MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Frame, MetricCategory.Latency,
-                MetricCategory.Gpu, MetricCategory.Storage, MetricCategory.AiUsage],
+                MetricCategory.Gpu, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery],
                 store.Load().GroupOrder);
             File.WriteAllText(path, "{}");
             Assert.Equal(OverlaySettings.DefaultGroupOrder, store.Load().GroupOrder);
@@ -109,7 +110,7 @@ public sealed class GroupOrderTests
         var migrated = OverlaySettings.NormalizeGroupOrder(
             [MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Frame, MetricCategory.Gpu, MetricCategory.Storage]);
         Assert.Equal([MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Frame, MetricCategory.Latency,
-            MetricCategory.Gpu, MetricCategory.Storage, MetricCategory.AiUsage], migrated);
+            MetricCategory.Gpu, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery], migrated);
     }
 
     [Fact]

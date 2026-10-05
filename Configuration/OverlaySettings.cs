@@ -9,7 +9,9 @@ public sealed record OverlaySettings
     public const int DefaultRefreshIntervalMs = 500;
     public const int MaximumRefreshIntervalMs = 2000;
     public static IReadOnlyList<MetricCategory> DefaultGroupOrder { get; } =
-        [MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.Storage, MetricCategory.Network, MetricCategory.AiUsage];
+        [MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.Storage, MetricCategory.Network, MetricCategory.AiUsage, MetricCategory.PeripheralBattery];
+    public bool PeripheralBatteriesEnabled { get; init; } = true;
+    public IReadOnlyList<DevOverlay.Peripherals.PeripheralPreference> PeripheralDevices { get; init; } = [];
     public bool IsVisible { get; init; } = true;
     /// <summary>Semantic modifier/virtual-key pair used by the Windows global HUD visibility hotkey.</summary>
     public OverlayHotkey Hotkey { get; init; } = OverlayHotkey.Default;

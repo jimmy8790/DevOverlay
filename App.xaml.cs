@@ -19,12 +19,14 @@ public partial class App : System.Windows.Application
     private OverlaySettings _settings = OverlaySettings.CreateDefault();
     private MetricUpdateService? _metricUpdateService;
     private MetricUpdateService? _fpsUpdateService;
+    private DevOverlay.Peripherals.PeripheralBatteryService? _peripheralBatteryService;
     private FpsMetricProvider? _fpsProvider;
     private CodexRateLimitMetricProvider? _codexRateLimitProvider;
     private ClaudeUsageMetricProvider? _claudeUsageProvider;
     private OverlayViewModel? _overlayViewModel;
     private OverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
+    private Updates.UpdateChecker? _updateChecker;
     private SettingsViewModel? _settingsViewModel;
     private System.Windows.Threading.DispatcherTimer? _settingsStatusTimer;
     private TrayIconController? _trayIcon;
@@ -79,6 +81,25 @@ public partial class App : System.Windows.Application
         _hotkeyStatusText = InitializeOverlay(_overlayWindow, _globalHotkeyService, _settings);
         RuntimeDiagnostics.Write($"[Startup] Hotkey={_hotkeyStatusText} OverlayVisible={_overlayWindow.IsVisible}");
         StartMetricUpdateService(_settings);
+        var peripheralWindows = new DevOverlay.Peripherals.WindowsBatteryPropertyBackend();
+        _peripheralBatteryService = new([peripheralWindows, new DevOverlay.Peripherals.BluetoothGattBatteryBackend(),
+            new DevOverlay.Peripherals.StandardHidBatteryBackend(peripheralWindows),
+            new DevOverlay.Peripherals.VendorBackends.PulsarNordicBatteryBackend(peripheralWindows),
+            new DevOverlay.Peripherals.VendorBackends.RazerBarracudaBatteryBackend(peripheralWindows)]);
+        peripheralWindows.DevicesChanged += _peripheralBatteryService.RequestRefresh;
+        _peripheralBatteryService.Updated += readings => Dispatcher.BeginInvoke(() =>
+        {
+            var preferences = DevOverlay.Peripherals.PeripheralBatteryMerge.AddPreferences(_settings.PeripheralDevices, readings);
+            if (!_settings.PeripheralDevices.SequenceEqual(preferences))
+            {
+                _settings = _settings with { PeripheralDevices = preferences }; SaveSettings();
+                _overlayViewModel?.ApplySettings(_settings);
+            }
+            _overlayViewModel?.ApplyPeripheralBatteries(readings);
+            _settingsViewModel?.UpdatePeripheralDevices(readings, preferences);
+        });
+        _peripheralBatteryService.Start();
+        peripheralWindows.StartWatching();
         _fpsProvider = new FpsMetricProvider(_settings);
         _fpsUpdateService = new MetricUpdateService([_fpsProvider], TimeSpan.FromMilliseconds(_settings.RefreshIntervalMs));
         _fpsUpdateService.MetricsUpdated += metrics => Dispatcher.BeginInvoke(() =>
@@ -178,6 +199,9 @@ public partial class App : System.Windows.Application
         }
 
         var viewModel = new SettingsViewModel(_settings);
+        if (_peripheralBatteryService is not null)
+            viewModel.PeripheralDiagnosticsFactory = _peripheralBatteryService.ExportDiagnosticsAsync;
+        viewModel.UpdatePeripheralDevices(_peripheralBatteryService?.Current ?? [], _settings.PeripheralDevices);
         viewModel.SettingsChanged += async settings =>
         {
             try { await ApplySettingsAsync(settings); }
@@ -191,6 +215,19 @@ public partial class App : System.Windows.Application
         viewModel.PresentMonInstallRequested += InstallPresentMon;
         viewModel.CodexRecheckRequested += () => _ = RecheckCodexAsync(viewModel);
         viewModel.ClaudeRecheckRequested += () => _ = RecheckClaudeAsync(viewModel);
+        viewModel.LinkOpenRequested += OpenAllowedLink;
+        viewModel.PeripheralForgotten += identity => _peripheralBatteryService?.Forget(identity);
+        var updateChecker = _updateChecker ??= new Updates.UpdateChecker(
+            new Updates.GitHubReleaseSource(Updates.ReleaseVersion.Running(typeof(App).Assembly)?.ToString() ?? "unknown"),
+            Updates.ReleaseVersion.Running(typeof(App).Assembly));
+        Action<Updates.UpdateStatus> showUpdateStatus = status =>
+        {
+            RuntimeDiagnostics.Write($"[Update] State={status.State} Latest={status.Latest} Failure={status.Failure} Http={status.StatusCode}");
+            Dispatcher.BeginInvoke(() => viewModel.UpdateUpdateStatus(status));
+        };
+        updateChecker.StatusChanged += showUpdateStatus;
+        viewModel.UpdateCheckRequested += () => _ = updateChecker.CheckAsync(force: true);
+        viewModel.UpdateUpdateStatus(updateChecker.Cached ?? Updates.UpdateStatus.Checking);
         viewModel.UpdatePawnIoStatus(_pawnIoPrerequisite.Diagnose());
         viewModel.UpdateSensorServiceStatus(_sensorServiceStatusReader.Read());
         viewModel.UpdateSensorServiceConnection(_sensorServiceClient.State, _sensorServiceClient.Detail);
@@ -203,6 +240,7 @@ public partial class App : System.Windows.Application
         var window = new SettingsWindow(viewModel);
         window.Closed += (_, _) =>
         {
+            updateChecker.StatusChanged -= showUpdateStatus;
             _globalHotkeyService.SetCaptureActive(false);
             _settingsStatusTimer?.Stop();
             _settingsStatusTimer = null;
@@ -220,6 +258,18 @@ public partial class App : System.Windows.Application
         _settingsStatusTimer.Start();
         window.Show();
         _ = PopulateDeviceChoicesAsync(viewModel);
+        _ = updateChecker.CheckAsync(force: false);
+    }
+
+    private void OpenAllowedLink(string url)
+    {
+        if (!Updates.AppLinks.IsAllowedBrowserUrl(url)) return;
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            System.Windows.MessageBox.Show(_settingsWindow, "The browser could not be opened.", "DevOverlay",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private async Task RecheckCodexAsync(SettingsViewModel viewModel)
@@ -549,6 +599,7 @@ public partial class App : System.Windows.Application
             _overlayWindow = null;
         }
         _trayIcon?.Dispose();
+        if (_peripheralBatteryService is not null) await _peripheralBatteryService.DisposeAsync();
         _trayIcon = null;
         if (_metricUpdateService is not null)
         {

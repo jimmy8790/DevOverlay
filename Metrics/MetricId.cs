@@ -25,5 +25,6 @@ public enum MetricId
     CodexSecondaryRateLimit,
     ClaudePrimaryRateLimit,
     ClaudeSecondaryRateLimit,
-    ClaudeContextRemaining
+    ClaudeContextRemaining,
+    PeripheralBattery
 }

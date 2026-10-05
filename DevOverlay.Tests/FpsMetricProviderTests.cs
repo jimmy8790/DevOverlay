@@ -392,11 +392,11 @@ public sealed class FpsMetricProviderTests
     {
         var settings = OverlaySettings.CreateDefault();
         Assert.Equal([MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency,
-            MetricCategory.Storage, MetricCategory.Network, MetricCategory.AiUsage], settings.GroupOrder);
+            MetricCategory.Storage, MetricCategory.Network, MetricCategory.AiUsage, MetricCategory.PeripheralBattery], settings.GroupOrder);
         Assert.True(settings.EnabledGroups.Contains(MetricCategory.Frame));
         Assert.True(settings.EnabledMetrics.Contains(MetricId.OnePercentLow));
         Assert.Equal([MetricCategory.Network, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency,
-            MetricCategory.Cpu, MetricCategory.Storage, MetricCategory.AiUsage], OverlaySettings.NormalizeGroupOrder(
+            MetricCategory.Cpu, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery], OverlaySettings.NormalizeGroupOrder(
                 [MetricCategory.Network, MetricCategory.Gpu, MetricCategory.Cpu, MetricCategory.Storage]));
 
         var directory = Path.Combine(Path.GetTempPath(), "DevOverlay-tests", Guid.NewGuid().ToString("N"));

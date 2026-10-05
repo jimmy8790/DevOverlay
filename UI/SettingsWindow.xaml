@@ -8,6 +8,25 @@
     <ScrollViewer x:Name="SettingsContentScrollViewer" VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
       <StackPanel Margin="16">
+      <GroupBox x:Name="AboutGroup" Header="About" Margin="0,0,0,12">
+        <StackPanel Margin="10">
+          <TextBlock Text="{Binding AboutNameText}" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding VersionText}" Margin="0,2,0,0" />
+          <TextBlock Text="{Binding UpdateStatusText}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,10,0,0" />
+          <TextBlock Text="{Binding UpdateDetailText}" TextWrapping="Wrap" Foreground="Gray" Margin="0,2,0,0" />
+          <WrapPanel Margin="0,8,0,0">
+            <Button Content="View release" IsEnabled="{Binding CanViewRelease}"
+                    Width="110" Margin="0,0,8,8" Click="OnViewReleaseClick" />
+            <Button Content="Check again" IsEnabled="{Binding CanCheckForUpdates}"
+                    Width="110" Margin="0,0,8,8" Click="OnCheckForUpdatesClick" />
+          </WrapPanel>
+          <TextBlock Text="GitHub" FontWeight="SemiBold" Margin="0,6,0,6" />
+          <WrapPanel>
+            <Button Content="Open GitHub" Width="110" Margin="0,0,8,8" Click="OnOpenGitHubClick" />
+            <Button Content="View releases" Width="110" Margin="0,0,8,8" Click="OnViewReleasesClick" />
+          </WrapPanel>
+        </StackPanel>
+      </GroupBox>
       <GroupBox x:Name="OverlaySettingsGroup" Header="Position" Margin="0,0,0,10">
         <StackPanel Margin="10">
           <TextBlock Text="{Binding PositionModeText}" Margin="0,0,0,6" />
@@ -291,6 +310,31 @@
         </StackPanel>
       </GroupBox>
 
+      <GroupBox Header="Peripheral batteries" Margin="0,0,0,12">
+        <StackPanel Margin="10">
+          <CheckBox Content="Show peripheral batteries" IsChecked="{Binding PeripheralBatteriesEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <TextBlock Text="Compatible Windows / Bluetooth / verified vendor devices. Unsupported devices show N/A and start hidden. Blank HUD names use the default label (up to 12 characters)." TextWrapping="Wrap" Foreground="Gray" Margin="0,6,0,6" />
+          <Button Content="Export Peripheral Diagnostics" HorizontalAlignment="Left" Click="OnExportPeripheralDiagnosticsClick" Margin="0,0,0,6" />
+          <TextBlock Text="Exports product names and hashed identifiers, not raw serials, addresses or HID payloads. Review before sharing." TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,6" />
+          <ItemsControl ItemsSource="{Binding PeripheralDevices}">
+            <ItemsControl.ItemTemplate><DataTemplate>
+              <StackPanel Margin="0,4,0,8">
+                <CheckBox Content="{Binding FriendlyName}" IsChecked="{Binding Show, Mode=TwoWay}" />
+                <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="20,3,0,0" />
+                <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" Foreground="Gray" Margin="20,2,0,0" />
+                <WrapPanel Margin="20,4,0,0">
+                  <TextBlock Text="HUD name" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <TextBox Width="130" MaxLength="24" Text="{Binding CustomName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                  <TextBlock Text="{Binding DefaultLabel}" Foreground="Gray" VerticalAlignment="Center" Margin="8,0,0,0" />
+                  <Button Content="Forget" Visibility="{Binding ForgetVisibility}" Padding="10,1" Margin="12,0,0,0"
+                          ToolTip="Remove this device's saved DevOverlay settings. Windows and the device are not changed."
+                          Click="OnForgetPeripheralClick" />
+                </WrapPanel>
+              </StackPanel>
+            </DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </GroupBox>
       <Button Content="Close" Width="80" HorizontalAlignment="Right" IsDefault="True" Click="OnCloseClick" />
       </StackPanel>
     </ScrollViewer>

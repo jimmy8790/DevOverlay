@@ -12,6 +12,8 @@ public sealed class OverlayViewModel : ObservableObject
     private readonly Dictionary<MetricCategory, MetricGroupViewModel> _groupsByCategory = [];
     private readonly Dictionary<MetricId, MetricItemViewModel> _itemsById = [];
     private readonly Dictionary<MetricId, MetricSnapshot> _latestMetrics = [];
+    private IReadOnlyList<DevOverlay.Peripherals.PeripheralBatteryReading> _peripherals = [];
+    private readonly Dictionary<string, MetricItemViewModel> _peripheralItems = [];
 
     public OverlayViewModel(OverlaySettings settings, Dispatcher dispatcher)
     {
@@ -70,6 +72,7 @@ public sealed class OverlayViewModel : ObservableObject
             _groupsByCategory.Remove(category);
         }
         foreach (var metric in _latestMetrics.Values.OrderBy(metric => metric.Id)) ApplyMetric(metric);
+        ApplyPeripheralBatteries(_peripherals);
         ReorderGroups();
         UpdateGroupSeparators();
         UpdateMetricPairSpacing();
@@ -91,6 +94,40 @@ public sealed class OverlayViewModel : ObservableObject
             _latestMetrics[metric.Id] = unavailable;
             ApplyMetric(unavailable);
         }
+    }
+
+    public void ApplyPeripheralBatteries(IReadOnlyList<DevOverlay.Peripherals.PeripheralBatteryReading> readings)
+    {
+        if (!_dispatcher.CheckAccess()) { _dispatcher.BeginInvoke(() => ApplyPeripheralBatteries(readings)); return; }
+        _peripherals = readings;
+        var visible = _settings.PeripheralBatteriesEnabled ? _settings.PeripheralDevices.Where(item => item.Show)
+            .OrderBy(item => item.Type).ThenBy(item => item.Identity, StringComparer.Ordinal).ToArray() : [];
+        const MetricCategory category = MetricCategory.PeripheralBattery;
+        if (visible.Length == 0)
+        {
+            if (_groupsByCategory.Remove(category, out var previous)) Groups.Remove(previous);
+            _peripheralItems.Clear(); UpdateGroupSeparators(); return;
+        }
+        if (!_groupsByCategory.TryGetValue(category, out var group))
+        {
+            group = new(category, string.Empty); _groupsByCategory.Add(category, group);
+            Groups.Insert(GetGroupInsertionIndex(category), group);
+        }
+        var ids = visible.Select(item => item.Identity).ToHashSet();
+        foreach (var id in _peripheralItems.Keys.Except(ids).ToArray())
+        { group.Items.Remove(_peripheralItems[id]); _peripheralItems.Remove(id); }
+        for (var index = 0; index < visible.Length; index++)
+        {
+            var preference = visible[index];
+            var reading = readings.FirstOrDefault(item => item.Identity == preference.Identity);
+            var percentage = reading?.ValidPercentage;
+            var metric = new MetricSnapshot(MetricId.PeripheralBattery, category, preference.HudLabel,
+                percentage, "%", percentage.HasValue, reading?.UpdatedAt ?? DateTimeOffset.UtcNow);
+            if (!_peripheralItems.TryGetValue(preference.Identity, out var item))
+            { item = new(metric); _peripheralItems.Add(preference.Identity, item); group.Items.Insert(index, item); }
+            else { item.Update(metric); var oldIndex = group.Items.IndexOf(item); if (oldIndex != index) group.Items.Move(oldIndex, index); }
+        }
+        UpdateGroupSeparators(); UpdateMetricPairSpacing();
     }
 
     private void ApplyMetric(MetricSnapshot metric)
@@ -154,6 +191,7 @@ public sealed class OverlayViewModel : ObservableObject
         MetricCategory.Latency => "LAT",
         // Codex and Claude metrics already carry CX / CL prefixes in the HUD.
         MetricCategory.AiUsage => string.Empty,
+        MetricCategory.PeripheralBattery => string.Empty,
         _ => category.ToString()
     };
 

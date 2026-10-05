@@ -17,7 +17,7 @@ internal static class MetricTextFormatter
     }
 
     public static string GetPrefix(MetricSnapshot metric) => metric.Id is MetricId.CodexPrimaryRateLimit or MetricId.CodexSecondaryRateLimit or
-        MetricId.ClaudePrimaryRateLimit or MetricId.ClaudeSecondaryRateLimit
+        MetricId.ClaudePrimaryRateLimit or MetricId.ClaudeSecondaryRateLimit or MetricId.PeripheralBattery
         ? metric.DisplayName
         : GetPrefix(metric.Id);
 
@@ -40,7 +40,7 @@ internal static class MetricTextFormatter
 
     // Labelled metrics keep their label while unavailable; other metrics rely on the group title.
     private static string FormatNumber(double value, MetricId id) =>
-        id is MetricId.FramesPerSecond or MetricId.OnePercentLow ? value.ToString("0") :
+        id is MetricId.FramesPerSecond or MetricId.OnePercentLow or MetricId.PeripheralBattery ? value.ToString("0") :
         id is MetricId.FrameTime or MetricId.Latency ? value.ToString("0.0") :
         value % 1 == 0 ? value.ToString("0") : value.ToString("0.0");
 

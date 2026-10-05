@@ -185,4 +185,47 @@ public partial class SettingsWindow : Window
 
     private void OnUninstallSensorServiceClick(object sender, RoutedEventArgs e) =>
         ((SettingsViewModel)DataContext).RequestSensorServiceAction(SensorServiceAction.Uninstall);
+
+    private void OnForgetPeripheralClick(object sender, RoutedEventArgs e)
+    {
+        var row = (PeripheralDeviceViewModel)((FrameworkElement)sender).DataContext;
+        var answer = System.Windows.MessageBox.Show(this,
+            $"Remove \"{row.FriendlyName}\" from DevOverlay?\n\nThis deletes only DevOverlay's saved settings for it (HUD name and visibility). " +
+            "Windows, drivers, Bluetooth pairing and the device itself are not changed. If the device is detected again, " +
+            "it will be listed again with default settings.",
+            "Forget device", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer == MessageBoxResult.Yes) ((SettingsViewModel)DataContext).ForgetPeripheral(row.Identity);
+    }
+
+    private void OnViewReleaseClick(object sender, RoutedEventArgs e) => ((SettingsViewModel)DataContext).RequestOpenLatestRelease();
+    private void OnCheckForUpdatesClick(object sender, RoutedEventArgs e) => ((SettingsViewModel)DataContext).RequestUpdateCheck();
+    private void OnOpenGitHubClick(object sender, RoutedEventArgs e) => ((SettingsViewModel)DataContext).RequestOpenRepository();
+    private void OnViewReleasesClick(object sender, RoutedEventArgs e) => ((SettingsViewModel)DataContext).RequestOpenReleases();
+
+    private async void OnExportPeripheralDiagnosticsClick(object sender, RoutedEventArgs e)
+    {
+        var factory = ((SettingsViewModel)DataContext).PeripheralDiagnosticsFactory;
+        if (factory is null) return;
+        var picker = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export Peripheral Diagnostics", Filter = "JSON diagnostics (*.json)|*.json",
+            FileName = "DevOverlay-peripherals.json", DefaultExt = ".json", AddExtension = true
+        };
+        if (picker.ShowDialog(this) != true) return;
+        var button = (System.Windows.Controls.Button)sender;
+        button.IsEnabled = false;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var json = await factory(timeout.Token);
+            await System.IO.File.WriteAllTextAsync(picker.FileName, json, timeout.Token);
+            System.Windows.MessageBox.Show(this, "Diagnostics exported. Review product names before sharing the file.", "Peripheral diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            RuntimeDiagnostics.Write($"[Peripheral] Export failed Type={exception.GetType().Name}");
+            System.Windows.MessageBox.Show(this, "Diagnostics could not be exported. Check the destination and try again.", "Peripheral diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { button.IsEnabled = true; }
+    }
 }

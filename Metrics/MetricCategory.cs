@@ -8,5 +8,6 @@ public enum MetricCategory
     Network,
     Frame,
     Latency,
-    AiUsage
+    AiUsage,
+    PeripheralBattery
 }

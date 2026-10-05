@@ -89,6 +89,7 @@ internal static class MetricDisplayLayout
         MetricId.CodexSecondaryRateLimit => "100%",
         MetricId.ClaudePrimaryRateLimit => "100%",
         MetricId.ClaudeSecondaryRateLimit => "100%",
+        MetricId.PeripheralBattery => "100%",
 
         _ => "N/A"
     };

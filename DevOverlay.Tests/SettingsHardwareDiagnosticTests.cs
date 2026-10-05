@@ -11,6 +11,7 @@ using Xunit.Abstractions;
 
 namespace DevOverlay.Tests;
 
+[Collection(WpfCollection.Name)]
 public sealed class SettingsHardwareDiagnosticTests(ITestOutputHelper output)
 {
     [Fact]

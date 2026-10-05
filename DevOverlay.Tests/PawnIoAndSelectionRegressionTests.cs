@@ -13,6 +13,7 @@ using Xunit;
 
 namespace DevOverlay.Tests;
 
+[Collection(WpfCollection.Name)]
 public sealed class PawnIoAndSelectionRegressionTests
 {
     [Fact]

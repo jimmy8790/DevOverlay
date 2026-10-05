@@ -121,11 +121,19 @@ public sealed class OverlaySettingsStore
             Hotkey = new OverlayHotkey(
                 persisted.HotkeyModifiers is { } modifiers ? (OverlayHotkeyModifiers)modifiers : defaults.Hotkey.Modifiers,
                 persisted.HotkeyVirtualKey is { } virtualKey ? virtualKey : defaults.Hotkey.VirtualKey).Normalize(),
-            PopupBehavior = defaults.PopupBehavior
+            PopupBehavior = defaults.PopupBehavior,
+            PeripheralBatteriesEnabled = persisted.PeripheralBatteriesEnabled ?? true,
+            PeripheralDevices = (persisted.PeripheralDevices ?? []).Where(item => item is not null && !string.IsNullOrWhiteSpace(item.Identity))
+                .GroupBy(item => item.Identity).Select(group => group.First()).Take(256)
+                .Select(item => item with { Type = Enum.IsDefined(item.Type) ? item.Type : DevOverlay.Peripherals.PeripheralType.Other,
+                    CustomName = DevOverlay.Peripherals.PeripheralPreference.NormalizeName(item.CustomName),
+                    DefaultLabel = DevOverlay.Peripherals.PeripheralPreference.NormalizeName(item.DefaultLabel) is { Length: > 0 } label ? label : "DEV" }).ToArray()
         };
 
     private static PersistedOverlaySettings FromSettings(OverlaySettings settings) => new()
     {
+        PeripheralBatteriesEnabled = settings.PeripheralBatteriesEnabled,
+        PeripheralDevices = settings.PeripheralDevices.ToArray(),
         RefreshIntervalMs = OverlaySettings.NormalizeRefreshIntervalMs(settings.RefreshIntervalMs),
         CpuGroupEnabled = settings.EnabledGroups.Contains(MetricCategory.Cpu),
         GpuGroupEnabled = settings.EnabledGroups.Contains(MetricCategory.Gpu),
@@ -233,6 +241,8 @@ public sealed class OverlaySettingsStore
         public bool? FpsGroupEnabled { get; init; }
         public bool? LatencyGroupEnabled { get; init; }
         public bool? AiUsageGroupEnabled { get; init; }
+        public bool? PeripheralBatteriesEnabled { get; init; }
+        public DevOverlay.Peripherals.PeripheralPreference[]? PeripheralDevices { get; init; }
         public string? GpuDeviceId { get; init; }
         public string? NetworkDeviceId { get; init; }
         public string? StorageDeviceId { get; init; }

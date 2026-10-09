@@ -37,3 +37,6 @@ TestResults/
 *.trx
 frame-capture-*
 __pycache__/
+
+# Serena MCP plugin state (local, per-machine)
+/.serena/

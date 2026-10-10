@@ -36,7 +36,6 @@ internal static class MetricTextFormatter
     public static string FormatValue(MetricSnapshot metric)
     {
         if (metric.Id == MetricId.BatteryPower && metric.DisplayName == "AC") return "AC";
-        if (metric.Id == MetricId.BatteryRemaining && metric.DisplayName.Length == 0) return string.Empty;
         if (!metric.IsAvailable || metric.Value is not { } value || !double.IsFinite(value)) return UnavailableMarker;
         if (metric.Id == MetricId.BatteryRemaining)
         {

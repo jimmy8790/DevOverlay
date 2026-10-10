@@ -46,10 +46,10 @@ public sealed class SystemBatteryPresentationTests
     }
 
     [Fact]
-    public void InactiveRuntimeIsBlankButUnknownDischargingRuntimeIsUnavailable()
+    public void InactiveRuntimeShowsNotAvailableAndUnknownDischargingRuntimeIsUnavailable()
     {
         foreach (var flow in new[] { BatteryFlow.Ac, BatteryFlow.Unknown })
-            Assert.Equal("", MetricTextFormatter.FormatValue(SystemBatteryMetricProvider.CreateSnapshots(new(true, 78, flow, null, null)).Last()));
+            Assert.Equal("N/A", MetricTextFormatter.FormatValue(SystemBatteryMetricProvider.CreateSnapshots(new(true, 78, flow, null, null)).Last()));
         Assert.Equal("N/A", MetricTextFormatter.FormatValue(SystemBatteryMetricProvider.CreateSnapshots(new(true, 78, BatteryFlow.Discharging, null, null)).Last()));
         Assert.Equal("N/A", MetricTextFormatter.FormatValue(SystemBatteryMetricProvider.CreateSnapshots(new(true, 78, BatteryFlow.Charging, null, null)).Last()));
     }

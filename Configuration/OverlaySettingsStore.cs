@@ -112,7 +112,8 @@ public sealed class OverlaySettingsStore
             persisted.RenderLatencyEnabled ?? defaults.EnabledMetrics.Contains(MetricId.Latency),
             persisted.AiUsageGroupEnabled ?? defaults.EnabledGroups.Contains(MetricCategory.AiUsage),
             persisted.CodexAccountLimitsEnabled ?? defaults.EnabledMetrics.Contains(MetricId.CodexPrimaryRateLimit),
-            persisted.ClaudeUsageEnabled ?? defaults.EnabledMetrics.Contains(MetricId.ClaudePrimaryRateLimit)) with
+            persisted.ClaudeUsageEnabled ?? defaults.EnabledMetrics.Contains(MetricId.ClaudePrimaryRateLimit),
+            persisted.BatteryGroupEnabled ?? defaults.EnabledGroups.Contains(MetricCategory.Battery)) with
         {
             RefreshIntervalMs = OverlaySettings.NormalizeRefreshIntervalMs(persisted.RefreshIntervalMs ?? defaults.RefreshIntervalMs),
             Position = ToPosition(persisted, defaults.Position),
@@ -142,6 +143,7 @@ public sealed class OverlaySettingsStore
         FpsGroupEnabled = settings.EnabledGroups.Contains(MetricCategory.Frame),
         LatencyGroupEnabled = settings.EnabledGroups.Contains(MetricCategory.Latency),
         AiUsageGroupEnabled = settings.EnabledGroups.Contains(MetricCategory.AiUsage),
+        BatteryGroupEnabled = settings.EnabledGroups.Contains(MetricCategory.Battery),
         GpuDeviceId = ToDeviceId(settings.GpuDeviceSelection),
         NetworkDeviceId = ToDeviceId(settings.NetworkDeviceSelection),
         StorageDeviceId = settings.StorageDeviceSelection is SystemDriveDeviceSelection
@@ -241,6 +243,7 @@ public sealed class OverlaySettingsStore
         public bool? FpsGroupEnabled { get; init; }
         public bool? LatencyGroupEnabled { get; init; }
         public bool? AiUsageGroupEnabled { get; init; }
+        public bool? BatteryGroupEnabled { get; init; }
         public bool? PeripheralBatteriesEnabled { get; init; }
         public DevOverlay.Peripherals.PeripheralPreference[]? PeripheralDevices { get; init; }
         public string? GpuDeviceId { get; init; }

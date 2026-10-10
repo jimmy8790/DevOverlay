@@ -90,7 +90,7 @@ public sealed class OverlayViewModel : ObservableObject
 
         foreach (var metric in _latestMetrics.Values.Where(metric => metric.Category == category).ToArray())
         {
-            var unavailable = MetricSnapshot.Unavailable(metric.Id, metric.Category, metric.DisplayName, metric.Unit);
+            var unavailable = MetricSnapshot.Unavailable(metric.Id, metric.Category, metric.DisplayName, metric.Unit) with { IsApplicable = metric.IsApplicable };
             _latestMetrics[metric.Id] = unavailable;
             ApplyMetric(unavailable);
         }
@@ -134,6 +134,12 @@ public sealed class OverlayViewModel : ObservableObject
     {
         if (!IsEnabled(metric))
         {
+            if (_itemsById.Remove(metric.Id, out var previous) && _groupsByCategory.TryGetValue(metric.Category, out var previousGroup))
+            {
+                previousGroup.Items.Remove(previous);
+                if (previousGroup.Items.Count == 0)
+                { Groups.Remove(previousGroup); _groupsByCategory.Remove(metric.Category); UpdateGroupSeparators(); }
+            }
             return;
         }
 
@@ -179,7 +185,7 @@ public sealed class OverlayViewModel : ObservableObject
     }
 
     private bool IsEnabled(MetricSnapshot metric) =>
-        _settings.EnabledGroups.Contains(metric.Category) && _settings.EnabledMetrics.Contains(metric.Id);
+        metric.IsApplicable && _settings.EnabledGroups.Contains(metric.Category) && _settings.EnabledMetrics.Contains(metric.Id);
 
     private static string GetGroupTitle(MetricCategory category) => category switch
     {
@@ -192,6 +198,7 @@ public sealed class OverlayViewModel : ObservableObject
         // Codex and Claude metrics already carry CX / CL prefixes in the HUD.
         MetricCategory.AiUsage => string.Empty,
         MetricCategory.PeripheralBattery => string.Empty,
+        MetricCategory.Battery => "BAT",
         _ => category.ToString()
     };
 

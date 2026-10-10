@@ -40,7 +40,7 @@ public sealed class OverlaySettingsStoreTests
         foreach (var id in new[] { MetricId.FramesPerSecond, MetricId.OnePercentLow, MetricId.FrameTime, MetricId.Latency })
             Assert.Contains(id, settings.EnabledMetrics);
         Assert.Equal([MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Frame, MetricCategory.Latency,
-            MetricCategory.Gpu, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery], settings.GroupOrder);
+            MetricCategory.Gpu, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery, MetricCategory.Battery], settings.GroupOrder);
         Assert.Equal(DeviceSelection.Specific("game.exe"), settings.FpsTargetSelection);
     }
 

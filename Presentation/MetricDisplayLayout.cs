@@ -30,6 +30,8 @@ internal static class MetricDisplayLayout
             System.Windows.FontStretches.Normal);
 
     private static readonly ConcurrentDictionary<MetricId, double> WidthCache = new();
+    private static readonly Lazy<double> BatteryTimePrefixWidth = new(() =>
+        Math.Ceiling(Math.Max(MeasureText("LEFT"), MeasureText("FULL"))) + SafetyPadding);
 
     /// <summary>
     /// Returns a stable automatically measured width for the metric value field.
@@ -37,12 +39,21 @@ internal static class MetricDisplayLayout
     public static double GetTextWidth(MetricId id) =>
         WidthCache.GetOrAdd(id, MeasureMetricWidth);
 
+    public static double GetPrefixWidth(MetricId id) => id switch
+    {
+        MetricId.BatteryRemaining => BatteryTimePrefixWidth.Value,
+        _ => double.NaN
+    };
+
     private static double MeasureMetricWidth(MetricId id)
     {
         var representative = GetRepresentativeValue(id);
 
         var representativeWidth = MeasureText(representative);
         var unavailableWidth = MeasureText("N/A");
+        // '+'와 '-' 글리프 폭이 다를 수 있으므로 전력 칸은 양쪽 부호와 AC 표시를 모두 포함해 예약한다.
+        if (id == MetricId.BatteryPower)
+            unavailableWidth = Math.Max(unavailableWidth, Math.Max(MeasureText("+999.9W"), MeasureText("AC")));
 
         return Math.Ceiling(
             Math.Max(representativeWidth, unavailableWidth)
@@ -90,6 +101,9 @@ internal static class MetricDisplayLayout
         MetricId.ClaudePrimaryRateLimit => "100%",
         MetricId.ClaudeSecondaryRateLimit => "100%",
         MetricId.PeripheralBattery => "100%",
+        MetricId.BatteryCharge => "100%",
+        MetricId.BatteryPower => "-999.9W",
+        MetricId.BatteryRemaining => "99h 59m",
 
         _ => "N/A"
     };

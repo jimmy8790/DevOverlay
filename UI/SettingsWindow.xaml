@@ -318,6 +318,14 @@
         </StackPanel>
       </GroupBox>
 
+      <GroupBox Header="Battery" Margin="0,0,0,12">
+        <StackPanel Margin="10">
+          <CheckBox x:Name="ShowBatteryCheckBox" Content="Show BAT" IsChecked="{Binding BatteryEnabled, Mode=TwoWay}" FontWeight="SemiBold" />
+          <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="Gray"
+                     Text="Battery: +W is net power flowing into the battery, -W is net power flowing out. Windows battery rate is preferred; while it is unavailable, DevOverlay may estimate a recent average from real battery capacity changes. LEFT (discharging) and FULL (charging) appear only when the battery state and source data are valid. Hidden without a system battery; unavailable readings show N/A." />
+        </StackPanel>
+      </GroupBox>
+
       <GroupBox Header="Peripheral batteries" Margin="0,0,0,12">
         <StackPanel Margin="10">
           <CheckBox Content="Show peripheral batteries" IsChecked="{Binding PeripheralBatteriesEnabled, Mode=TwoWay}" FontWeight="SemiBold" />

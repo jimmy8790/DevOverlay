@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <!-- 진단 전용: 제품 네이티브 구현을 링크하며 앱 실행/설정/서비스는 건드리지 않는다. -->
+  <ItemGroup>
+    <Compile Include="../../Platform/Windows/WindowsBatteryNative.cs" Link="WindowsBatteryNative.cs" />
+    <Compile Include="../../Platform/Windows/SystemBatterySource.cs" Link="SystemBatterySource.cs" />
+    <Compile Include="../../Metrics/Windows/SystemBatteryReading.cs" Link="SystemBatteryReading.cs" />
+    <Compile Include="../../Metrics/Windows/BatteryPowerEstimator.cs" Link="BatteryPowerEstimator.cs" />
+  </ItemGroup>
+</Project>

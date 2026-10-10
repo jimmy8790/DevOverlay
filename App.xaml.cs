@@ -147,6 +147,7 @@ public partial class App : System.Windows.Application
         new PhysicalDiskThroughputMetricProvider(settings.StorageDeviceSelection),
         new NetworkThroughputMetricProvider(settings.NetworkDeviceSelection),
         new NetworkTodayMetricProvider(settings.NetworkDeviceSelection),
+        new SystemBatteryMetricProvider(),
         codexRateLimitProvider ?? new CodexRateLimitMetricProvider(settings),
         claudeUsageProvider ?? new ClaudeUsageMetricProvider(settings)
     ];

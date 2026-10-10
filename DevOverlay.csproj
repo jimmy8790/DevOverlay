@@ -25,6 +25,7 @@
     <Compile Remove="DevOverlay.SensorHost\**\*.cs" />
     <Compile Remove="DevOverlay.SensorService\**\*.cs" />
     <Compile Remove="SensorHostCore\**\*.cs" />
+    <Compile Remove="tools\BatteryPowerProbe\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="assets\DevOverlay.ico" />

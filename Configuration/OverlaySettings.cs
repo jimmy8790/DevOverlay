@@ -9,7 +9,7 @@ public sealed record OverlaySettings
     public const int DefaultRefreshIntervalMs = 500;
     public const int MaximumRefreshIntervalMs = 2000;
     public static IReadOnlyList<MetricCategory> DefaultGroupOrder { get; } =
-        [MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.Storage, MetricCategory.Network, MetricCategory.AiUsage, MetricCategory.PeripheralBattery];
+        [MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.Storage, MetricCategory.Network, MetricCategory.AiUsage, MetricCategory.PeripheralBattery, MetricCategory.Battery];
     public bool PeripheralBatteriesEnabled { get; init; } = true;
     public IReadOnlyList<DevOverlay.Peripherals.PeripheralPreference> PeripheralDevices { get; init; } = [];
     public bool IsVisible { get; init; } = true;
@@ -51,7 +51,7 @@ public sealed record OverlaySettings
     {
         EnabledGroups = new HashSet<MetricCategory>
         {
-            MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.Storage, MetricCategory.Network
+            MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame, MetricCategory.Latency, MetricCategory.Storage, MetricCategory.Network, MetricCategory.Battery
         },
         EnabledMetrics = new HashSet<MetricId>
         {
@@ -60,7 +60,8 @@ public sealed record OverlaySettings
             MetricId.GpuUtilization, MetricId.GpuTemperature, MetricId.GpuPower, MetricId.GpuVramUsed,
             MetricId.StorageRead, MetricId.StorageWrite,
             MetricId.NetworkDownload, MetricId.NetworkUpload, MetricId.NetworkTodayTotal,
-            MetricId.FramesPerSecond, MetricId.OnePercentLow, MetricId.FrameTime, MetricId.Latency
+            MetricId.FramesPerSecond, MetricId.OnePercentLow, MetricId.FrameTime, MetricId.Latency,
+            MetricId.BatteryCharge, MetricId.BatteryPower, MetricId.BatteryRemaining
         }
     };
 
@@ -96,14 +97,15 @@ public sealed record OverlaySettings
         bool renderLatencyEnabled = true,
         bool aiUsageEnabled = false,
         bool codexAccountLimitsEnabled = false,
-        bool claudeUsageEnabled = false) => new()
+        bool claudeUsageEnabled = false,
+        bool batteryEnabled = true) => new()
     {
         IsVisible = isVisible,
         GpuDeviceSelection = gpuDeviceSelection,
         NetworkDeviceSelection = networkDeviceSelection,
         StorageDeviceSelection = storageDeviceSelection,
         FpsTargetSelection = fpsTargetSelection ?? DeviceSelection.Auto,
-        EnabledGroups = CreateEnabledGroups(cpuEnabled, gpuEnabled, networkEnabled, storageEnabled, fpsEnabled, latencyEnabled, aiUsageEnabled),
+        EnabledGroups = CreateEnabledGroups(cpuEnabled, gpuEnabled, networkEnabled, storageEnabled, fpsEnabled, latencyEnabled, aiUsageEnabled, batteryEnabled),
         EnabledMetrics = CreateEnabledMetrics(
             cpuUsageEnabled,
             gpuUsageEnabled,
@@ -132,7 +134,8 @@ public sealed record OverlaySettings
         bool storageEnabled,
         bool fpsEnabled,
         bool latencyEnabled,
-        bool aiUsageEnabled)
+        bool aiUsageEnabled,
+        bool batteryEnabled)
     {
         var groups = new HashSet<MetricCategory>();
         if (cpuEnabled) groups.Add(MetricCategory.Cpu);
@@ -142,6 +145,7 @@ public sealed record OverlaySettings
         if (fpsEnabled) groups.Add(MetricCategory.Frame);
         if (latencyEnabled) groups.Add(MetricCategory.Latency);
         if (aiUsageEnabled) groups.Add(MetricCategory.AiUsage);
+        if (batteryEnabled) groups.Add(MetricCategory.Battery);
         return groups;
     }
 
@@ -165,7 +169,7 @@ public sealed record OverlaySettings
         bool codexAccountLimitsEnabled,
         bool claudeUsageEnabled)
     {
-        var metrics = new HashSet<MetricId>();
+        var metrics = new HashSet<MetricId> { MetricId.BatteryCharge, MetricId.BatteryPower, MetricId.BatteryRemaining };
         if (cpuUsageEnabled) metrics.Add(MetricId.CpuUtilization);
         if (cpuTemperatureEnabled) metrics.Add(MetricId.CpuTemperature);
         if (cpuPowerEnabled) metrics.Add(MetricId.CpuPower);

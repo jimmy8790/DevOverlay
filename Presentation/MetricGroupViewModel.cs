@@ -34,10 +34,11 @@ public sealed class MetricItemViewModel(MetricSnapshot metric) : ObservableObjec
 
     public MetricId Id => _metric.Id;
     public double DisplayWidth => MetricDisplayLayout.GetTextWidth(Id);
+    public double PrefixWidth => MetricDisplayLayout.GetPrefixWidth(Id);
     public string Text => MetricTextFormatter.Format(_metric);
     public string Prefix => MetricTextFormatter.GetPrefix(_metric);
     public string ValueText => MetricTextFormatter.FormatValue(_metric);
-    public Visibility PrefixVisibility => string.IsNullOrEmpty(Prefix) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility PrefixVisibility => Id is MetricId.BatteryRemaining || !string.IsNullOrEmpty(Prefix) ? Visibility.Visible : Visibility.Collapsed;
     /// <summary>Only non-final metric pairs consume the configurable inter-item gap.</summary>
     public bool HasFollowingItem => _hasFollowingItem;
 

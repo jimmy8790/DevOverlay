@@ -106,8 +106,9 @@ public sealed class CodexRateLimitTests
             [MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Frame, MetricCategory.Gpu, MetricCategory.Storage]);
         var defaults = OverlaySettings.CreateDefault();
 
-        Assert.Equal(MetricCategory.AiUsage, migrated[^2]);
-        Assert.Equal(MetricCategory.PeripheralBattery, migrated[^1]);
+        Assert.Equal(MetricCategory.AiUsage, migrated[^3]);
+        Assert.Equal(MetricCategory.PeripheralBattery, migrated[^2]);
+        Assert.Equal(MetricCategory.Battery, migrated[^1]);
         Assert.DoesNotContain(MetricCategory.AiUsage, defaults.EnabledGroups);
         Assert.DoesNotContain(MetricId.CodexPrimaryRateLimit, defaults.EnabledMetrics);
     }
@@ -148,7 +149,7 @@ public sealed class CodexRateLimitTests
             var before = OverlaySettings.CreateDefault() with
             {
                 GroupOrder = [MetricCategory.Network, MetricCategory.Cpu, MetricCategory.Gpu, MetricCategory.Frame,
-                    MetricCategory.Latency, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery],
+                    MetricCategory.Latency, MetricCategory.Storage, MetricCategory.AiUsage, MetricCategory.PeripheralBattery, MetricCategory.Battery],
                 EnabledGroups = new HashSet<MetricCategory>(OverlaySettings.CreateDefault().EnabledGroups) { MetricCategory.AiUsage },
                 EnabledMetrics = new HashSet<MetricId>(OverlaySettings.CreateDefault().EnabledMetrics)
                 {

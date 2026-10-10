@@ -13,6 +13,7 @@ namespace DevOverlay.Presentation;
 public sealed class SettingsViewModel : ObservableObject
 {
     private bool _cpuEnabled;
+    private bool _batteryEnabled;
     private bool _gpuEnabled;
     private bool _networkEnabled;
     private bool _storageEnabled;
@@ -98,6 +99,7 @@ public sealed class SettingsViewModel : ObservableObject
         _labelTextColor = _appearance.LabelTextColor;
         _spacing = _appearance.Spacing;
         _cpuEnabled = settings.EnabledGroups.Contains(MetricCategory.Cpu);
+        _batteryEnabled = settings.EnabledGroups.Contains(MetricCategory.Battery);
         _gpuEnabled = settings.EnabledGroups.Contains(MetricCategory.Gpu);
         _networkEnabled = settings.EnabledGroups.Contains(MetricCategory.Network);
         _storageEnabled = settings.EnabledGroups.Contains(MetricCategory.Storage);
@@ -292,6 +294,7 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     public bool CpuEnabled { get => _cpuEnabled; set => SetAndNotify(ref _cpuEnabled, value); }
+    public bool BatteryEnabled { get => _batteryEnabled; set => SetAndNotify(ref _batteryEnabled, value); }
     public bool GpuEnabled { get => _gpuEnabled; set => SetAndNotify(ref _gpuEnabled, value); }
     public bool NetworkEnabled { get => _networkEnabled; set => SetAndNotify(ref _networkEnabled, value); }
     public bool StorageEnabled { get => _storageEnabled; set => SetAndNotify(ref _storageEnabled, value); }
@@ -799,7 +802,8 @@ public sealed class SettingsViewModel : ObservableObject
         RenderLatencyEnabled,
         AiUsageEnabled,
         CodexAccountLimitsEnabled,
-        ClaudeUsageEnabled);
+        ClaudeUsageEnabled,
+        BatteryEnabled);
         _baseSettings = _baseSettings with
         {
             EnabledGroups = featureSettings.EnabledGroups,
@@ -929,6 +933,7 @@ public sealed class GroupOrderChoice(MetricCategory category) : ObservableObject
         MetricCategory.Latency => "LAT",
         MetricCategory.AiUsage => "AI",
         MetricCategory.PeripheralBattery => "Peripheral batteries",
+        MetricCategory.Battery => "Battery",
         _ => Category.ToString().ToUpperInvariant()
     };
     public bool CanMoveUp { get => _canMoveUp; set { if (_canMoveUp == value) return; _canMoveUp = value; OnPropertyChanged(); } }

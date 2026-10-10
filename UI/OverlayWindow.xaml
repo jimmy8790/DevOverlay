@@ -75,7 +75,7 @@
                         </Style.Triggers>
                       </Style>
                     </StackPanel.Style>
-                    <TextBlock Text="{Binding Prefix}" Visibility="{Binding PrefixVisibility}"
+                    <TextBlock Text="{Binding Prefix}" Visibility="{Binding PrefixVisibility}" Width="{Binding PrefixWidth}"
                                Style="{StaticResource OverlayGroupLabelStyle}"
                                Margin="{DynamicResource OverlayPrefixMargin}" />
                     <TextBlock Text="{Binding ValueText}" Width="{Binding DisplayWidth}"

@@ -38,6 +38,8 @@ public sealed class MetricItemViewModel(MetricSnapshot metric) : ObservableObjec
     public string Text => MetricTextFormatter.Format(_metric);
     public string Prefix => MetricTextFormatter.GetPrefix(_metric);
     public string ValueText => MetricTextFormatter.FormatValue(_metric);
+    // 전력 칸의 AC 표시만 가운데 맞춘다. 숫자 값은 기존 왼쪽 정렬을 유지한다.
+    public TextAlignment ValueAlignment => Id == MetricId.BatteryPower && ValueText == "AC" ? TextAlignment.Center : TextAlignment.Left;
     public Visibility PrefixVisibility => Id is MetricId.BatteryRemaining || !string.IsNullOrEmpty(Prefix) ? Visibility.Visible : Visibility.Collapsed;
     /// <summary>Only non-final metric pairs consume the configurable inter-item gap.</summary>
     public bool HasFollowingItem => _hasFollowingItem;
@@ -56,5 +58,6 @@ public sealed class MetricItemViewModel(MetricSnapshot metric) : ObservableObjec
         OnPropertyChanged(nameof(Prefix));
         OnPropertyChanged(nameof(PrefixVisibility));
         OnPropertyChanged(nameof(ValueText));
+        OnPropertyChanged(nameof(ValueAlignment));
     }
 }

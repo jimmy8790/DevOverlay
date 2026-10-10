@@ -79,6 +79,7 @@
                                Style="{StaticResource OverlayGroupLabelStyle}"
                                Margin="{DynamicResource OverlayPrefixMargin}" />
                     <TextBlock Text="{Binding ValueText}" Width="{Binding DisplayWidth}"
+                               TextAlignment="{Binding ValueAlignment}"
                                Style="{StaticResource OverlayMetricValueStyle}" />
                   </StackPanel>
                 </DataTemplate>

@@ -46,6 +46,17 @@ public sealed class SystemBatteryPresentationTests
     }
 
     [Fact]
+    public void OnlyAcPowerValueIsCenteredWhileNumbersStayLeftAligned()
+    {
+        var ac = new MetricItemViewModel(SystemBatteryMetricProvider.CreateSnapshots(new(true, 100, BatteryFlow.Ac, null, null))
+            .Single(item => item.Id == MetricId.BatteryPower));
+        var watts = new MetricItemViewModel(SystemBatteryMetricProvider.CreateSnapshots(new(true, 78, BatteryFlow.Discharging, -19.4, 13320))
+            .Single(item => item.Id == MetricId.BatteryPower));
+        Assert.Equal("AC", ac.ValueText); Assert.Equal(System.Windows.TextAlignment.Center, ac.ValueAlignment);
+        Assert.Equal("-19.4W", watts.ValueText); Assert.Equal(System.Windows.TextAlignment.Left, watts.ValueAlignment);
+    }
+
+    [Fact]
     public void InactiveRuntimeShowsNotAvailableAndUnknownDischargingRuntimeIsUnavailable()
     {
         foreach (var flow in new[] { BatteryFlow.Ac, BatteryFlow.Unknown })

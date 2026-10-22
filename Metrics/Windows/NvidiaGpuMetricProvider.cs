@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Diagnostics;
 using DevOverlay.Configuration;
+using DevOverlay.Platform.Windows;
 
 namespace DevOverlay.Metrics.Windows;
 
@@ -83,6 +84,8 @@ public sealed class NvidiaGpuMetricProvider : IMetricProvider, IAsyncDisposable,
                 }
 
                 _isInitialized = true;
+                LifecycleLog.SetContext("nvml.device", $"0x{_deviceHandle:X}");
+                LifecycleLog.Current.Write($"[NVML] Initialized Device=0x{_deviceHandle:X} Count={deviceCount}");
                 return true;
             }
             catch (DllNotFoundException)

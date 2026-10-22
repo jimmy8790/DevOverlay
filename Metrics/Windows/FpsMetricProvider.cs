@@ -224,6 +224,7 @@ internal sealed class FpsMetricProvider : IMetricProvider, IAsyncDisposable
                     client.Dispose();
                     if (!_connectionFailureReported)
                     {
+                        LifecycleLog.Current.Write("[PresentMon] API unavailable; FPS will retry in the background");
                         Debug.WriteLine("PresentMon API unavailable; FPS will retry in the background.");
                         _connectionFailureReported = true;
                     }
@@ -231,6 +232,8 @@ internal sealed class FpsMetricProvider : IMetricProvider, IAsyncDisposable
                 }
                 _client = client;
                 _connectionFailureReported = false;
+                LifecycleLog.Current.Write("[PresentMon] Client connected");
+                LifecycleLog.SetContext("fps.client", "connected");
                 Debug.WriteLine("PresentMon API connected; aggregate queries register on the first target.");
                 _nextTargetCheck = DateTimeOffset.MinValue;
             }
@@ -253,6 +256,7 @@ internal sealed class FpsMetricProvider : IMetricProvider, IAsyncDisposable
                 {
                     if (_target is { } old) _client.StopTracking(old.Pid);
                     _target = candidate;
+                    LifecycleLog.SetContext("fps.target", $"{candidate.Pid}:{candidate.Identity}");
                     _candidate = null;
                     _targetSince = now;
                     _lastValidSampleAt = now;
@@ -348,6 +352,7 @@ internal sealed class FpsMetricProvider : IMetricProvider, IAsyncDisposable
         _invalidatedSourceQpc = Math.Max(_invalidatedSourceQpc, _lastSourceQpc);
         if (_target is { } target) _client?.StopTracking(target.Pid);
         _target = null;
+        LifecycleLog.SetContext("fps.target", null);
         _lastLow = null;
         _lastSourceQpc = 0;
         _lastValidSampleAt = DateTimeOffset.MinValue;
@@ -360,7 +365,9 @@ internal sealed class FpsMetricProvider : IMetricProvider, IAsyncDisposable
         ClearCandidate();
         ClearTarget();
         _client?.Dispose();
+        if (_client is not null) LifecycleLog.Current.Write("[PresentMon] Client disconnected");
         _client = null;
+        LifecycleLog.SetContext("fps.client", null);
     }
 
     // HUD visibility is presentation-only: keep PresentMon warm while the user hides the overlay.

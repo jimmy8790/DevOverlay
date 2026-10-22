@@ -373,4 +373,114 @@ public sealed class PresentMonNativeMappingTests
         Assert.Equal(4, window.Mean(now + (ulong)(Stopwatch.Frequency * 1.5), 100));
         Assert.Null(window.Mean(now + (ulong)(Stopwatch.Frequency * 1.5), 200));
     }
+
+    // PresentMon v2.6.0 dynamic-query contract, verified against the upstream middleware source and measured on the installed
+    // PresentMonAPI2.dll 2.6.0.0 (3 swap chains -> rows at byte 0/32/64; 14 swap chains -> native wrote through byte 440):
+    // every swap chain row is written at stride PadToAlignment(max(dataOffset + dataSize), 16), up to the capacity the caller passes in.
+    // pmRegisterDynamicQuery does not return that stride, so the client must derive it (the frame query returns blobSize instead).
+    private sealed class PaddedDynamicNative
+    {
+        private PresentMonClient.QueryElement[] _fast = [];
+        internal int SwapChains = 3;
+        internal double[] Fps = [30, 144, 60];
+        internal int RequestedCapacity;
+        internal int NativeBytesWritten;
+        internal int OverflowBytes;
+        internal int Stride;
+
+        internal PresentMonClient CreateClient() => new(Register, Poll, RegisterFrame, Consume, (_, _) => 0, _ => 0,
+            null, () => (ulong)Stopwatch.GetTimestamp(), false);
+
+        private int Register(nint session, out nint query, PresentMonClient.QueryElement[] elements, ulong count, double window, double offset)
+        {
+            query = 10;
+            _fast = elements;
+            for (var i = 0; i < elements.Length; i++) { elements[i].DataOffset = (ulong)(i * 8); elements[i].DataSize = 8; } // 24 bytes of payload
+            return 0;
+        }
+
+        private int Poll(nint query, uint pid, byte[] buffer, ref uint count)
+        {
+            var stride = Stride = (int)((_fast.Max(element => element.DataOffset + element.DataSize) + 15) / 16 * 16); // 32
+            RequestedCapacity = (int)count;
+            var rows = Math.Min(SwapChains, (int)count);
+            NativeBytesWritten = (rows - 1) * stride + (int)_fast.Max(element => element.DataOffset + element.DataSize);
+            OverflowBytes = Math.Max(0, NativeBytesWritten - buffer.Length); // what the real DLL would write past the managed array
+            for (var row = 0; row < rows; row++)
+            {
+                var at = row * stride;
+                if (at + 24 > buffer.Length) break; // never fault the test process; the overflow is reported instead
+                BitConverter.TryWriteBytes(buffer.AsSpan(at, 8), 1000UL + (ulong)row);
+                BitConverter.TryWriteBytes(buffer.AsSpan(at + 8, 8), Fps[row % Fps.Length]);
+                BitConverter.TryWriteBytes(buffer.AsSpan(at + 16, 8), 1000d / Fps[row % Fps.Length]);
+            }
+            count = (uint)rows;
+            return 0;
+        }
+
+        private int RegisterFrame(nint session, out nint query, PresentMonClient.QueryElement[] elements, ulong count, out uint blobSize)
+        {
+            query = elements[2].Metric == 78 ? 40 : 30;
+            blobSize = 32;
+            for (var i = 0; i < elements.Length; i++) { elements[i].DataOffset = (ulong)(i * 8); elements[i].DataSize = 8; }
+            return 0;
+        }
+
+        private int Consume(nint query, uint pid, byte[] buffer, ref uint count) { count = 0; return 0; }
+    }
+
+    // The unpadded layout this client used to assume: 3 doubles/uint64 = 24 bytes per row, 24 * 16 = 384 bytes in total.
+    private const int OldAssumedStride = 24, OldAssumedBuffer = OldAssumedStride * 16;
+
+    [Fact]
+    public void NativeStrideModelMatchesTheMeasuredPaddedContract()
+    {
+        // Measured on PresentMonAPI2.dll 2.6.0.0 with three 8-byte elements: rows at byte 0/32/64, 14 rows ended at byte 440.
+        var native = new PaddedDynamicNative { SwapChains = 14, Fps = [60] };
+        using var client = native.CreateClient();
+        Assert.True(client.Track(100));
+        client.Poll(100, false, false);
+        Assert.Equal(32, native.Stride);                 // PadToAlignment(24, 16)
+        Assert.Equal(0, native.Stride % 16);
+        Assert.Equal(440, native.NativeBytesWritten);    // (14 - 1) * 32 + 24
+        Assert.True(native.NativeBytesWritten > OldAssumedBuffer); // the old allocation could not hold a representative multi-row result
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(12)]   // the last count the old 384-byte buffer happened to hold
+    [InlineData(13)]   // first count that overran it
+    [InlineData(14)]
+    [InlineData(16)]   // the capacity the client passes in
+    public void DynamicQueryBufferHoldsEveryRowTheNativeLibraryMayWrite(int swapChains)
+    {
+        var native = new PaddedDynamicNative { SwapChains = swapChains, Fps = [60] };
+        using var client = native.CreateClient();
+        Assert.True(client.Track(100));
+        client.Poll(100, false, false);
+        Assert.Equal(16, native.RequestedCapacity);
+        Assert.Equal(0, native.OverflowBytes);
+        Assert.Equal(swapChains > 12, native.NativeBytesWritten > OldAssumedBuffer); // documents exactly where the old code broke
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(13)]
+    [InlineData(16)]
+    public void RowNStartsAtNTimesTheNativeStrideSoTheLastRowIsReadCorrectly(int swapChains)
+    {
+        // The best swap chain is always the LAST row: with a 24-byte stride its fields would be read from the wrong bytes.
+        var fps = Enumerable.Range(0, swapChains).Select(row => 30d + row * 10).ToArray();
+        var native = new PaddedDynamicNative { SwapChains = swapChains, Fps = fps };
+        using var client = native.CreateClient();
+        Assert.True(client.Track(100));
+        var values = client.Poll(100, false, false);
+        Assert.Equal(fps[^1], values.FramesPerSecond);
+        Assert.Equal(1000d / fps[^1], values.FrameTimeMs!.Value, 9);
+        Assert.Equal(0, native.OverflowBytes);
+    }
 }

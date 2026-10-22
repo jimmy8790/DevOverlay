@@ -29,6 +29,8 @@ public partial class App : System.Windows.Application
     private Updates.UpdateChecker? _updateChecker;
     private readonly StartupRegistration _startupRegistration = new(new CurrentUserRunKey());
     private InteractiveInstanceGate? _interactiveInstanceGate;
+    private SessionMarker? _sessionMarker;
+    private System.Windows.Threading.DispatcherTimer? _sessionHeartbeat;
     private SettingsViewModel? _settingsViewModel;
     private System.Windows.Threading.DispatcherTimer? _settingsStatusTimer;
     private TrayIconController? _trayIcon;
@@ -58,12 +60,14 @@ public partial class App : System.Windows.Application
         if (!_interactiveInstanceGate.CanStartInteractiveSession)
         {
             RuntimeDiagnostics.Write("[Startup] Another interactive DevOverlay instance is already running; exiting this launch.");
+            LifecycleLog.Current.Write("[Shutdown] Requested reason=another interactive instance is already running (this launch exits)");
             Shutdown();
             return;
         }
         if (_interactiveInstanceGate.State == InteractiveInstanceState.Unavailable)
             RuntimeDiagnostics.Write($"[Startup] Interactive instance protection was unavailable: {_interactiveInstanceGate.Error}");
 
+        RegisterLifecycleDiagnostics(e.Args);
         base.OnStartup(e);
 
         _settingsStore = new OverlaySettingsStore();
@@ -96,7 +100,7 @@ public partial class App : System.Windows.Application
         _overlayWindow = new OverlayWindow(_overlayViewModel, new OverlayPositioningService());
         _overlayWindow.CustomPositionChanged += OnCustomPositionChanged;
         MainWindow = _overlayWindow;
-        _globalHotkeyService.Pressed += ToggleOverlayVisibility;
+        _globalHotkeyService.Pressed += ToggleOverlayFromHotkey;
         _hotkeyStatusText = InitializeOverlay(_overlayWindow, _globalHotkeyService, _settings);
         RuntimeDiagnostics.Write($"[Startup] Hotkey={_hotkeyStatusText} OverlayVisible={_overlayWindow.IsVisible}");
         StartMetricUpdateService(_settings);
@@ -128,10 +132,13 @@ public partial class App : System.Windows.Application
                 metric.Id == MetricId.FramesPerSecond && metric.IsAvailable));
         });
         _fpsUpdateService.ProviderFaulted += (provider, exception) =>
+        {
             Debug.WriteLine($"Metric provider '{provider.Name}' failed: {exception}");
+            LifecycleLog.Current.WriteThrottled($"provider:{provider.Name}", $"[ProviderFaulted] {provider.Name}: {exception.GetType().Name}: {exception.Message}", TimeSpan.FromMinutes(5));
+        };
         _fpsUpdateService.Start();
 
-        _trayIcon = new TrayIconController(OpenSettings, ToggleOverlayVisibility, ExitApplication);
+        _trayIcon = new TrayIconController(OpenSettings, ToggleOverlayFromTray, ExitApplication);
 #if DEBUG
         if (e.Args.Contains("--diagnose-startup", StringComparer.OrdinalIgnoreCase)) _ = ProbeStartupAsync();
         else if (_runtimeProbe) _ = ProbeRuntimeAsync();
@@ -177,7 +184,10 @@ public partial class App : System.Windows.Application
             }
         });
         service.ProviderFaulted += (provider, exception) =>
+        {
             Debug.WriteLine($"Metric provider '{provider.Name}' failed: {exception}");
+            LifecycleLog.Current.WriteThrottled($"provider:{provider.Name}", $"[ProviderFaulted] {provider.Name}: {exception.GetType().Name}: {exception.Message}", TimeSpan.FromMinutes(5));
+        };
         codexProvider.MetricsUpdated += metrics => Dispatcher.BeginInvoke(() =>
         {
             if (!ReferenceEquals(_codexRateLimitProvider, codexProvider)) return;
@@ -516,19 +526,23 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void ToggleOverlayVisibility()
+    private void ToggleOverlayFromHotkey() => ToggleOverlayVisibility("global hotkey");
+    private void ToggleOverlayFromTray() => ToggleOverlayVisibility("tray menu");
+
+    private void ToggleOverlayVisibility(string source)
     {
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.BeginInvoke(ToggleOverlayVisibility);
+            Dispatcher.BeginInvoke(() => ToggleOverlayVisibility(source));
             return;
         }
 
-        SetOverlayVisibility(!_settings.IsVisible);
+        SetOverlayVisibility(!_settings.IsVisible, source);
     }
 
-    private void SetOverlayVisibility(bool isVisible)
+    private void SetOverlayVisibility(bool isVisible, string source)
     {
+        LifecycleLog.Current.Write($"[Overlay] {(isVisible ? "Show" : "Hide")} requested source={source}");
         _settings = _settings with { IsVisible = isVisible };
         _fpsProvider?.Configure(_settings);
         ApplyOverlayVisibility();
@@ -617,12 +631,54 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        LifecycleLog.Current.Write("[Shutdown] Requested reason=tray Exit menu");
         Shutdown();
+    }
+
+    // Everything here only records evidence: no handler marks an exception handled, so failure behavior is unchanged.
+    // A hardware access violation (native interop) kills the process before any managed handler runs, so a session marker
+    // detects it on the next start; the exception and stack are in the Windows Application log (events 1000/1026).
+    private void RegisterLifecycleDiagnostics(string[] args)
+    {
+        var log = LifecycleLog.Current;
+        var version = typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown";
+        log.Write($"[Startup] Version={version} ExePath={Environment.ProcessPath} Args={args.Length} " +
+                  $"OS={Environment.OSVersion.Version} Runtime={Environment.Version}");
+        _sessionMarker = new SessionMarker(System.IO.Path.Combine(LifecycleLog.DefaultDirectory, "session.marker"));
+        if (_sessionMarker.DescribePreviousUncleanSession(Environment.ProcessId, IsDevOverlayProcessRunning) is { } previous)
+            log.Write($"[Startup] Previous session did not exit cleanly: {previous}. Check the Windows Application log (events 1000/1026) near lastHeartbeat for the exception.");
+        _sessionMarker.Begin(Environment.ProcessId, version);
+        _sessionHeartbeat = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _sessionHeartbeat.Tick += (_, _) => _sessionMarker?.Heartbeat();
+        _sessionHeartbeat.Start();
+        AppDomain.CurrentDomain.UnhandledException += (_, unhandled) => log.WriteFatal(unhandled.ExceptionObject, unhandled.IsTerminating);
+        DispatcherUnhandledException += (_, unhandled) => log.Write($"[DispatcherUnhandled] Exception={unhandled.Exception}");
+        TaskScheduler.UnobservedTaskException += (_, unobserved) => log.Write($"[UnobservedTask] Exception={unobserved.Exception}");
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => log.Write("[Exit] ProcessExit");
+        SessionEnding += (_, ending) => log.Write($"[Shutdown] Windows session ending reason={ending.ReasonSessionEnding}");
+    }
+
+    private static bool IsDevOverlayProcessRunning(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited && string.Equals(process.ProcessName, "DevOverlay", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException) { return false; } // no such process
+        catch (InvalidOperationException) { return false; }
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        _globalHotkeyService.Pressed -= ToggleOverlayVisibility;
+        LifecycleLog.Current.Write($"[Shutdown] OnExit ExitCode={e.ApplicationExitCode}");
+        // OnExit is async void: once it reaches its first await, Application.Run returns and the process ends, so nothing after
+        // an await is guaranteed to run (the marker would then survive every normal exit and be reported as a crash).
+        // Reaching OnExit means the shutdown was requested normally, so the marker is removed here, in the synchronous part.
+        // Only the primary instance created a marker.
+        _sessionHeartbeat?.Stop();
+        _sessionMarker?.MarkClean();
+        _globalHotkeyService.Pressed -= ToggleOverlayFromHotkey;
         _globalHotkeyService.Dispose();
         if (_overlayWindow is not null)
         {

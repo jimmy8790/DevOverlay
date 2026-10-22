@@ -252,7 +252,7 @@ internal sealed class PresentMonClient : IPresentMonClient
             _capture.SetQuery(tierName, registered.Select(element => new FrameCaptureColumnInfo(MetricSymbol(element.Metric), element.Metric, element.DataSize)).ToArray());
             RuntimeDiagnostics.Write($"[FrameCapture] Query Tier={tierName} {string.Join(';', registered.Select(element => $"metric={element.Metric} offset={element.DataOffset} size={element.DataSize}"))}");
         }
-        _fastBuffer = new byte[GetStride(_fastElements) * MaxSwapChains];
+        _fastBuffer = new byte[GetDynamicBlobStride(_fastElements) * MaxSwapChains];
     }
 
     public void StopTracking(uint processId)
@@ -287,7 +287,7 @@ internal sealed class PresentMonClient : IPresentMonClient
         if (_trace && (status != Success || count == 0)) RuntimeDiagnostics.Write($"[PresentTrace] FastPoll Pid={processId} Status={status} Rows={count}");
         if (status != Success) throw new InvalidOperationException($"PresentMon fast poll failed: {status}.");
         if (count == 0 || count > MaxSwapChains) return default;
-        var stride = GetStride(_fastElements);
+        var stride = GetDynamicBlobStride(_fastElements);
         double bestFps = 0;
         double? frameTime = null;
         ulong selectedAddress = 0;
@@ -559,6 +559,12 @@ internal sealed class PresentMonClient : IPresentMonClient
 
     private static int GetStride(QueryElement[] elements) =>
         checked((int)elements.Max(element => element.DataOffset + element.DataSize));
+
+    // pmPollDynamicQuery writes every swap-chain row at stride PadToAlignment(max(offset + size), 16) for up to the capacity passed in
+    // (PresentMon v2.6.0 PM_DYNAMIC_QUERY::blobSize_; measured on PresentMonAPI2.dll 2.6.0.0: 14 swap chains wrote through byte 440).
+    // Unlike pmRegisterFrameQuery, pmRegisterDynamicQuery does not return it, and upstream's own client wrapper omits the padding.
+    // The unpadded value under-allocated the buffer (24 * 16 = 384 < 512 bytes) and misread every row after the first.
+    private static int GetDynamicBlobStride(QueryElement[] elements) => (GetStride(elements) + 15) / 16 * 16;
 
     private static double ReadDouble(byte[] buffer, int baseOffset, QueryElement element) =>
         element.DataSize == sizeof(double) && baseOffset + (int)element.DataOffset + sizeof(double) <= buffer.Length

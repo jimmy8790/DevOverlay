@@ -24,6 +24,8 @@ public partial class OverlayWindow : Window
         DataContext = viewModel;
         ContentRendered += OnContentRendered;
         SizeChanged += OnSizeChanged;
+        // The HUD is hidden, never closed, during normal use; a close before app exit is therefore worth a log line.
+        Closing += (_, _) => LifecycleLog.Current.Write("[Overlay] Window closing");
         Closed += OnClosed;
         SystemParameters.StaticPropertyChanged += OnSystemParametersChanged;
         PreviewMouseLeftButtonDown += OnPreviewMouseLeftButtonDown;
@@ -167,6 +169,7 @@ public partial class OverlayWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        LifecycleLog.Current.Write("[Overlay] Window closed");
         SystemParameters.StaticPropertyChanged -= OnSystemParametersChanged;
     }
 }
